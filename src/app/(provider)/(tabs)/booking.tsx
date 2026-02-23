@@ -1,7 +1,7 @@
 import React, {useState} from 'react';
 import {View, SectionList, TouchableOpacity, Image, ActivityIndicator, RefreshControl, Linking} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {useQuery, useQueryClient} from '@tanstack/react-query';
+import {useQuery} from '@tanstack/react-query';
 import {supabase} from '@/utils/supabase';
 import {useAppStore} from '@/store';
 import dayjs from 'dayjs';
@@ -31,14 +31,7 @@ export default function ProviderBookingsScreen() {
       const {data: serviceBookings, error: serviceError} = await supabase
         .from('services_booking')
         .select(
-          `
-          id, created_at, status, price, appointed,
-          service:services!inner (
-            id, images, provider,
-            translations:service_translations(title, lang_code)
-          ),
-          user:profile (id, name, image, phone)
-        `
+          `id, created_at, status, price, appointed, service:services!inner (id, images, provider, translations:service_translations(title, lang_code)), user:profile (id, name, image, phone)`
         )
         .eq('service.provider', user.id);
 
@@ -48,14 +41,7 @@ export default function ProviderBookingsScreen() {
       const {data: eventBookings, error: eventError} = await supabase
         .from('event_booking')
         .select(
-          `
-          id, created_at, status, total_price,
-          event:events!inner (
-            id, start_at, images, provider,
-            translations:event_translations(title, lang_code)
-          ),
-          user:profile (id, name, image, phone)
-        `
+          `id, created_at, status, total_price, event:events!inner (id, start_at, images, provider, translations:event_translations(title, lang_code)), user:profile (id, name, image, phone)`
         )
         .eq('event.provider', user.id);
 
@@ -216,12 +202,12 @@ export default function ProviderBookingsScreen() {
         <View className="flex-row rounded-full bg-gray-100 p-1">
           <TouchableOpacity
             onPress={() => setActiveTab('service')}
-            className={`flex-1 items-center rounded-full py-2 ${activeTab === 'service' ? 'bg-white shadow-sm' : 'bg-transparent'}`}>
+            className={`flex-1 items-center rounded-full py-2 shadow-none ${activeTab === 'service' ? 'bg-white shadow-sm' : 'bg-transparent'}`}>
             <Body className={`font-nunito-bold ${activeTab === 'service' ? 'text-primary' : 'text-gray-500'}`}>Services</Body>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setActiveTab('event')}
-            className={`flex-1 items-center rounded-full py-2 ${activeTab === 'event' ? 'bg-white shadow-sm' : 'bg-transparent'}`}>
+            className={`flex-1 items-center rounded-full py-2 shadow-none ${activeTab === 'event' ? 'bg-white shadow-sm' : 'bg-transparent'}`}>
             <Body className={`font-nunito-bold ${activeTab === 'event' ? 'text-primary' : 'text-gray-500'}`}>Events</Body>
           </TouchableOpacity>
         </View>

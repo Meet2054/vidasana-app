@@ -153,6 +153,9 @@ export default function PaymentSetupScreen() {
                 <Ionicons name="arrow-forward" size={20} color="white" />
               </TouchableOpacity>
               <Caption className="mt-4 text-center text-gray-400">You will be redirected to completely secure onboarding hosted by Stripe.</Caption>
+              <TouchableOpacity onPress={handleLogout} className="mt-4 p-2">
+                <Body className="font-nunito-bold text-gray-500 underline">Back to Login</Body>
+              </TouchableOpacity>
             </View>
           )}
 

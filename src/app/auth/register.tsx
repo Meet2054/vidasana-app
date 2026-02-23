@@ -9,11 +9,11 @@ import {TERMS_AND_CONDITIONS} from '@/constants';
 import {useForm, Controller} from 'react-hook-form';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {Link, useRouter, useLocalSearchParams} from 'expo-router';
+import CountrySelect, {ICountry} from 'react-native-country-select';
 import Animated, {FadeInDown, FadeInUp} from 'react-native-reanimated';
 import {getDocumentAsync, DocumentPickerAsset} from 'expo-document-picker';
+import {View, Image, Platform, TextInput, ScrollView, TouchableOpacity, KeyboardAvoidingView, Pressable, Linking, Alert} from 'react-native';
 import {Display, Subtitle, Button, PasswordStrengthBar, PhoneInputField, Body, Caption, GoogleSignInButton, LegalModal} from '@/components';
-import {View, Image, Platform, TextInput, ScrollView, TouchableOpacity, KeyboardAvoidingView, Pressable, Linking, Modal} from 'react-native';
-import CountrySelect, {ICountry} from 'react-native-country-select';
 
 type FormData = {email: string; phone: string; fullName: string; password: string};
 type Role = 'user' | 'provider';
@@ -86,7 +86,17 @@ const Register = () => {
         userId = authData.user.id;
       }
 
-      // 2. Create Profile
+      // 2. Provider Specifics
+      if (role === 'provider') {
+        const file = await uploadFile(document!, 'provider_docs', `${userId}/${document?.name}`);
+        if (file.error) throw file.error;
+        const {error: providerError} = await supabase
+          .from('provider')
+          .insert({id: userId, document: file.data?.path, country: providerCountry!.name.common});
+        if (providerError) throw providerError;
+      }
+
+      // 3. Create Profile
       const callingCode = selectedCountry?.callingCode || '';
       const fullPhoneNumber = callingCode ? `${callingCode} ${phone}` : phone;
       const countryCode = selectedCountry?.cca2 || '';
@@ -101,22 +111,6 @@ const Register = () => {
       });
 
       if (profileError) throw profileError;
-
-      // 3. Provider Specifics
-      if (role === 'provider') {
-        // Refresh session to Ensure JWT has the new role
-        const {error: sessionError} = await supabase.auth.refreshSession();
-        if (sessionError) throw sessionError;
-
-        const file = await uploadFile(document!, 'provider_docs', `${userId}/${document?.name}`);
-        if (file.error) throw file.error;
-        const {error: providerError} = await supabase.from('provider').insert({
-          id: userId,
-          document: file.data?.path,
-          country: providerCountry!.name.common,
-        });
-        if (providerError) throw providerError;
-      }
 
       Toast.show({type: 'success', text2: t('auth.register.success')});
 
@@ -134,7 +128,7 @@ const Register = () => {
         if (role === 'provider') router.replace('/(provider)/payment-setup');
       }
     } catch (e: any) {
-      console.log('🚀 ~ onSubmit ~ e:', e);
+      Alert.alert('Error', e?.message || JSON.stringify(e));
       Toast.show({type: 'error', text1: e?.message});
     }
   };
