@@ -99,8 +99,6 @@ export const ProfileScreen = () => {
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
-      // Store update is handled by the auth state change listener usually, but we can explicitly clear if needed
-      // setSession(null);
     } catch (error) {
       Alert.alert('Error', 'Failed to log out. Please try again.');
     }

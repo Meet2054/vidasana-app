@@ -1,5 +1,5 @@
 import React, {useState, useEffect} from 'react';
-import {Modal, View, TouchableOpacity, ActivityIndicator, Platform} from 'react-native';
+import {Modal, View, TouchableOpacity, ActivityIndicator} from 'react-native';
 import MapView, {Region, PROVIDER_GOOGLE} from 'react-native-maps';
 import {useUserLocation} from '@/hooks';
 import {Feather} from '@expo/vector-icons';
@@ -120,21 +120,6 @@ export function LocationPickerModal({visible, onClose, onConfirm, initialLocatio
             </>
           )}
         </View>
-
-        {Platform.OS === 'ios' && (
-          <View className="absolute bottom-[100px] right-4 gap-3">
-            <TouchableOpacity
-              onPress={handleZoomIn}
-              className="h-12 w-12 items-center justify-center rounded-full bg-white shadow-lg active:bg-gray-50">
-              <Feather name="plus" size={24} color="#374151" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={handleZoomOut}
-              className="h-12 w-12 items-center justify-center rounded-full bg-white shadow-lg active:bg-gray-50">
-              <Feather name="minus" size={24} color="#374151" />
-            </TouchableOpacity>
-          </View>
-        )}
 
         {/* Footer Info */}
         <View className="mb-safe border-t border-gray-100 bg-white px-6 py-4">

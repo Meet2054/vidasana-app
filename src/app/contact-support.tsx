@@ -1,12 +1,13 @@
 import React from 'react';
+import {supabase} from '@/utils';
 import {View, Linking} from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
 import {Ionicons} from '@expo/vector-icons';
 import {Display, Subtitle, Button} from '@/components';
-import {supabase} from '@/utils/supabase';
-import {useLocalSearchParams} from 'expo-router';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import {useLocalSearchParams, useRouter} from 'expo-router';
 
 export default function ContactSupportScreen() {
+  const router = useRouter();
   const {reason} = useLocalSearchParams();
 
   const isRejected = reason === 'reject';
@@ -16,10 +17,6 @@ export default function ContactSupportScreen() {
   const message = isRejected
     ? 'Your account application was not approved. Please contact support for more details.'
     : 'Your account has been suspended. Please contact support to resolve this issue.';
-
-  const handleContact = () => {
-    Linking.openURL('mailto:support@vidasana.com');
-  };
 
   return (
     <SafeAreaView className="flex-1 items-center justify-center bg-white p-6">
@@ -34,8 +31,8 @@ export default function ContactSupportScreen() {
       </View>
 
       <View className="w-full">
-        <Button label="Contact Support" onPress={handleContact} fullWidth className="mb-4" />
-        <Button label="Log Out" variant="outline" onPress={() => supabase.auth.signOut()} fullWidth />
+        <Button label="Contact Support" onPress={() => Linking.openURL('mailto:support@vidasana.com')} fullWidth className="mb-4" />
+        <Button label="Log Out" variant="outline" fullWidth onPress={() => supabase.auth.signOut().finally(() => router.replace('/auth'))} />
       </View>
     </SafeAreaView>
   );

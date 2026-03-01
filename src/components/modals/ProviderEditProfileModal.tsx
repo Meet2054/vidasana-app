@@ -8,6 +8,8 @@ import MapView, {Marker, PROVIDER_GOOGLE} from 'react-native-maps';
 import {useTranslation} from 'react-i18next';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {supabase} from '@/utils';
+import {useAppStore} from '@/store';
+import {useUserLocation} from '@/hooks';
 import {Ionicons, Feather} from '@expo/vector-icons';
 import {launchImageLibraryAsync, MediaTypeOptions} from 'expo-image-picker';
 
@@ -48,6 +50,8 @@ const SERVICE_TYPES = ['Online', 'In Person', 'Hybrid'];
 export const ProviderEditProfileModal: React.FC<ProviderEditProfileModalProps> = ({visible, onClose, onSuccess, initialData}) => {
   const {t} = useTranslation();
   const insets = useSafeAreaInsets();
+  const {location: deviceLocation} = useUserLocation();
+  const setSession = useAppStore((state) => state.setSession);
 
   const [editedInfo, setEditedInfo] = useState<ProviderProfileData>(initialData);
   const [isSaving, setIsSaving] = useState(false);
@@ -69,6 +73,10 @@ export const ProviderEditProfileModal: React.FC<ProviderEditProfileModalProps> =
       if (loc && typeof loc === 'object' && loc.coordinates) {
         setLng(loc.coordinates[0]);
         setLat(loc.coordinates[1]);
+      } else if (deviceLocation) {
+        // Seed with device GPS when no saved location
+        setLat(deviceLocation.latitude);
+        setLng(deviceLocation.longitude);
       } else {
         setLng(null);
         setLat(null);
@@ -104,6 +112,12 @@ export const ProviderEditProfileModal: React.FC<ProviderEditProfileModalProps> =
 
       // 0. Upload Image if changed
       if (profileImage && profileImage !== initialData.image) {
+        // Delete the old image first (handles extension changes like .jpeg → .png)
+        if (initialData.image) {
+          const oldPath = initialData.image.startsWith('http') ? (initialData.image.match(/\/profile\/(.+?)(?:\?|$)/)?.[1] ?? '') : initialData.image;
+          if (oldPath) await supabase.storage.from('profile').remove([oldPath]);
+        }
+
         const fileExt = profileImage.split('.').pop()?.split('?')[0] || 'jpeg';
         const fileName = `${initialData.id}.${fileExt}`;
 
@@ -125,10 +139,15 @@ export const ProviderEditProfileModal: React.FC<ProviderEditProfileModalProps> =
         uploadedImagePath = fileName;
       }
 
+      // Resolve cache-busted public URL for auth metadata (bypasses React Native image cache)
+      const resolvedImageUrl = uploadedImagePath
+        ? `${supabase.storage.from('profile').getPublicUrl(uploadedImagePath).data.publicUrl}?t=${Date.now()}`
+        : undefined;
+
       // 1. Update Profile (Phone & Image)
       const profileUpdates: any = {phone: fullPhoneNumber || null};
       if (uploadedImagePath !== undefined) {
-        profileUpdates.image = uploadedImagePath;
+        profileUpdates.image = uploadedImagePath; // relative path in DB
       }
 
       const {error: profileError} = await supabase.from('profile').update(profileUpdates).eq('id', initialData.id);
@@ -138,7 +157,7 @@ export const ProviderEditProfileModal: React.FC<ProviderEditProfileModalProps> =
       // 2. Update Provider table (Optional Info & Terms)
       const {error: providerError} = await supabase.from('provider').upsert({
         id: initialData.id,
-        country: initialData.country, // Required field in DB
+        country: initialData.country,
         description: editedInfo.description,
         service_type: editedInfo.service_type,
         pricing: editedInfo.pricing,
@@ -148,6 +167,18 @@ export const ProviderEditProfileModal: React.FC<ProviderEditProfileModalProps> =
       });
 
       if (providerError) throw providerError;
+
+      // Also update auth user metadata (use full URL so Avatar sees changed URL)
+      await supabase.auth.updateUser({
+        data: {
+          full_name: editedInfo.fullName,
+          ...(resolvedImageUrl ? {image: resolvedImageUrl} : {}),
+        },
+      });
+
+      // Refresh session so all store subscribers (HomeHeader, etc.) update instantly
+      const {data: refreshed} = await supabase.auth.refreshSession();
+      if (refreshed?.session) setSession(refreshed.session);
 
       onSuccess();
       onClose();
@@ -347,7 +378,7 @@ export const ProviderEditProfileModal: React.FC<ProviderEditProfileModalProps> =
         <LocationPickerModal
           visible={isLocationPickerVisible}
           onClose={() => setLocationPickerVisible(false)}
-          initialLocation={lat && lng ? {lat, lng} : null}
+          initialLocation={lat && lng ? {lat, lng} : deviceLocation ? {lat: deviceLocation.latitude, lng: deviceLocation.longitude} : null}
           onConfirm={(loc) => {
             setLat(loc.lat);
             setLng(loc.lng);

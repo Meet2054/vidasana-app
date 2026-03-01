@@ -1,9 +1,9 @@
 import {Feather} from '@expo/vector-icons';
 import {useTranslation} from 'react-i18next';
-import {View, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator, TextInput, Text} from 'react-native';
+import {View, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator, TextInput} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import React, {useState, useEffect} from 'react';
-import {HomeHeader, H3, Body, CategoryGrid, MoodCheckInModal, FilterModal, ServiceCard, EventCard, FilterState, Caption} from '@/components';
+import {HomeHeader, H3, Body, CategoryGrid, MoodCheckInModal, FilterModal, ServiceCard, EventCard, FilterState} from '@/components';
 import {useUserLocation, useDebouncer} from '@/hooks';
 import {useInfiniteQuery, useMutation, useQueryClient} from '@tanstack/react-query';
 import {supabase} from '@/utils';
@@ -12,32 +12,6 @@ import Toast from 'react-native-toast-message';
 
 type SortOption = 'relevance' | 'price_asc' | 'price_desc' | 'newest';
 type ExploreMode = 'services' | 'events';
-
-// Types
-type Service = {
-  id: string;
-  title: string;
-  description: string;
-  price: number | null;
-  images: string[] | null;
-  provider: any;
-  created_at: string;
-  dist_meters?: number;
-  is_bookmarked?: boolean;
-  week_day?: string[];
-  avg_rating?: number;
-};
-
-type Event = {
-  id: string;
-  title: string;
-  description: string;
-  images: string[] | null;
-  start_at: string;
-  dist_meters?: number;
-  price?: number;
-  is_bookmarked?: boolean;
-};
 
 export default function HomeScreen() {
   const {t, i18n} = useTranslation();
@@ -80,60 +54,13 @@ export default function HomeScreen() {
   };
 
   // -- Services Query --
-  const servicesQueryKey = [
-    'services_search_home',
+  const activeQueryKey = [
+    'integrated_search_home',
+    activeTab,
     i18n.language,
     debouncedSearchQuery,
     selectedCategories,
     selectedDays,
-    userLocation,
-    sortBy,
-    isNearMeEnabled,
-    radius,
-  ];
-
-  const servicesQuery = useInfiniteQuery({
-    queryKey: servicesQueryKey,
-    enabled: activeTab === 'services',
-    initialPageParam: 0,
-    queryFn: async ({pageParam = 0}) => {
-      const LIMIT = 10;
-      const {data: rpcData, error} = await supabase.rpc('search_services', {
-        search_query: debouncedSearchQuery || undefined,
-        target_lang: i18n.language,
-        category_filter: selectedCategories.length > 0 ? selectedCategories : undefined,
-        day_filter: selectedDays.length > 0 ? selectedDays : undefined,
-        user_lat: userLocation?.latitude || undefined,
-        user_lng: userLocation?.longitude || undefined,
-        radius_meters: isNearMeEnabled ? radius * 1000 : undefined,
-        sort_by: sortBy,
-        page_offset: pageParam,
-        page_limit: LIMIT,
-      });
-
-      if (error) {
-        console.error('Search Services Error:', error);
-        throw error;
-      }
-
-      // Fetch bookmarks
-      if (rpcData && rpcData.length > 0 && user?.id) {
-        const serviceIds = rpcData.map((s: any) => s.id);
-        const {data: bookmarks} = await supabase.from('services_bookmark').select('service').eq('user', user.id).in('service', serviceIds);
-        const bookmarkedSet = new Set(bookmarks?.map((b) => b.service));
-        return rpcData.map((s: any) => ({...(s as any), is_bookmarked: bookmarkedSet.has(s.id)})) as any[];
-      }
-      return rpcData as unknown as any[];
-    },
-    getNextPageParam: (lastPage, allPages) => (lastPage.length === 10 ? allPages.length * 10 : undefined),
-  });
-
-  // -- Events Query --
-  const eventsQueryKey = [
-    'events_search_home',
-    i18n.language,
-    debouncedSearchQuery,
-    selectedCategories,
     dateFrom,
     dateTo,
     userLocation,
@@ -142,18 +69,19 @@ export default function HomeScreen() {
     radius,
   ];
 
-  const eventsQuery = useInfiniteQuery({
-    queryKey: eventsQueryKey,
-    enabled: activeTab === 'events',
+  const activeQuery = useInfiniteQuery({
+    queryKey: activeQueryKey,
     initialPageParam: 0,
     queryFn: async ({pageParam = 0}) => {
       const LIMIT = 10;
-      const {data: rpcData, error} = await supabase.rpc('search_events', {
-        search_query: debouncedSearchQuery || undefined, // Allow empty search
+      const {data: rpcData, error} = await supabase.rpc('integrated_search', {
+        p_type: activeTab === 'services' ? 'service' : 'event',
+        search_query: debouncedSearchQuery || undefined,
         target_lang: i18n.language,
         category_filter: selectedCategories.length > 0 ? selectedCategories : undefined,
-        date_from: dateFrom ? dateFrom.toISOString() : undefined,
-        date_to: dateTo ? dateTo.toISOString() : undefined,
+        day_filter: activeTab === 'services' && selectedDays.length > 0 ? selectedDays : undefined,
+        date_from: activeTab === 'events' && dateFrom ? dateFrom.toISOString() : undefined,
+        date_to: activeTab === 'events' && dateTo ? dateTo.toISOString() : undefined,
         user_lat: userLocation?.latitude || undefined,
         user_lng: userLocation?.longitude || undefined,
         radius_meters: isNearMeEnabled ? radius * 1000 : undefined,
@@ -163,24 +91,14 @@ export default function HomeScreen() {
       });
 
       if (error) {
-        console.error('Search Events Error:', error);
+        console.error(`Search ${activeTab} Error:`, error);
         throw error;
-      }
-
-      // Fetch bookmarks
-      if (rpcData && rpcData.length > 0 && user?.id) {
-        const eventIds = rpcData.map((s: any) => s.id);
-        const {data: bookmarks} = await supabase.from('event_bookmarks').select('event').eq('user', user.id).in('event', eventIds);
-        const bookmarkedSet = new Set(bookmarks?.map((b) => b.event));
-        return rpcData.map((s: any) => ({...(s as any), is_bookmarked: bookmarkedSet.has(s.id)})) as any[];
       }
 
       return rpcData as unknown as any[];
     },
     getNextPageParam: (lastPage, allPages) => (lastPage.length === 10 ? allPages.length * 10 : undefined),
   });
-
-  const activeQuery = activeTab === 'services' ? servicesQuery : eventsQuery;
   const dataList = activeQuery.data?.pages.flatMap((page) => page) || [];
 
   // Manual Refresh
@@ -217,62 +135,32 @@ export default function HomeScreen() {
     return count;
   })();
 
-  // -- Services Bookmark Mutation --
+  // -- Unified Bookmark Mutation --
   const toggleBookmarkMutation = useMutation({
-    mutationFn: async ({serviceId, isBookmarked}: {serviceId: string; isBookmarked: boolean}) => {
+    mutationFn: async ({itemId, itemType, isBookmarked}: {itemId: string; itemType: 'service' | 'event'; isBookmarked: boolean}) => {
       if (isBookmarked) {
-        await supabase.from('services_bookmark').delete().eq('service', serviceId).eq('user', user.id);
+        await supabase.from('bookmark').delete().eq('item_id', itemId).eq('type', itemType).eq('user', user.id);
       } else {
-        await supabase.from('services_bookmark').insert({service: serviceId, user: user.id});
+        await supabase.from('bookmark').insert({item_id: itemId, type: itemType, user: user.id});
       }
     },
-    onMutate: async ({serviceId, isBookmarked}) => {
-      await queryClient.cancelQueries({queryKey: servicesQueryKey});
-      const previousData = queryClient.getQueryData(servicesQueryKey);
-      queryClient.setQueryData(servicesQueryKey, (old: any) => {
+    onMutate: async ({itemId, isBookmarked}) => {
+      await queryClient.cancelQueries({queryKey: activeQueryKey});
+      const previousData = queryClient.getQueryData(activeQueryKey);
+      queryClient.setQueryData(activeQueryKey, (old: any) => {
         if (!old) return old;
         return {
           ...old,
-          pages: old.pages.map((page: any[]) =>
-            page.map((service: any) => (service.id === serviceId ? {...service, is_bookmarked: !isBookmarked} : service))
-          ),
+          pages: old.pages.map((page: any[]) => page.map((item: any) => (item.id === itemId ? {...item, is_bookmarked: !isBookmarked} : item))),
         };
       });
       return {previousData};
     },
     onError: (err, variables, context: any) => {
-      if (context?.previousData) queryClient.setQueryData(servicesQueryKey, context.previousData);
+      if (context?.previousData) queryClient.setQueryData(activeQueryKey, context.previousData);
       Toast.show({type: 'error', text1: 'Failed to update bookmark'});
     },
-    onSettled: () => queryClient.invalidateQueries({queryKey: servicesQueryKey}),
-  });
-
-  // -- Events Bookmark Mutation --
-  const toggleEventBookmarkMutation = useMutation({
-    mutationFn: async ({eventId, isBookmarked}: {eventId: string; isBookmarked: boolean}) => {
-      if (isBookmarked) {
-        await supabase.from('event_bookmarks').delete().eq('event', eventId).eq('user', user.id);
-      } else {
-        await supabase.from('event_bookmarks').insert({event: eventId, user: user.id});
-      }
-    },
-    onMutate: async ({eventId, isBookmarked}) => {
-      await queryClient.cancelQueries({queryKey: eventsQueryKey});
-      const previousData = queryClient.getQueryData(eventsQueryKey);
-      queryClient.setQueryData(eventsQueryKey, (old: any) => {
-        if (!old) return old;
-        return {
-          ...old,
-          pages: old.pages.map((page: any[]) => page.map((event: any) => (event.id === eventId ? {...event, is_bookmarked: !isBookmarked} : event))),
-        };
-      });
-      return {previousData};
-    },
-    onError: (err, variables, context: any) => {
-      if (context?.previousData) queryClient.setQueryData(eventsQueryKey, context.previousData);
-      Toast.show({type: 'error', text1: 'Failed to update bookmark'});
-    },
-    onSettled: () => queryClient.invalidateQueries({queryKey: eventsQueryKey}),
+    onSettled: () => queryClient.invalidateQueries({queryKey: activeQueryKey}),
   });
 
   const renderServiceItem = ({item}: {item: any}) => (
@@ -285,7 +173,7 @@ export default function HomeScreen() {
         images={item.images || []}
         distance={item.dist_meters}
         isBookmarked={item.is_bookmarked || false}
-        onBookmarkToggle={() => toggleBookmarkMutation.mutate({serviceId: item.id, isBookmarked: item.is_bookmarked || false})}
+        onBookmarkToggle={() => toggleBookmarkMutation.mutate({itemId: item.id, itemType: 'service', isBookmarked: item.is_bookmarked || false})}
         provider={item.provider}
         weekDays={item.week_day}
         rating={item.avg_rating}
@@ -321,7 +209,7 @@ export default function HomeScreen() {
         provider={item.provider}
         rating={item.avg_rating}
         isBookmarked={item.is_bookmarked || false}
-        onBookmarkToggle={() => toggleEventBookmarkMutation.mutate({eventId: item.id, isBookmarked: item.is_bookmarked || false})}
+        onBookmarkToggle={() => toggleBookmarkMutation.mutate({itemId: item.id, itemType: 'event', isBookmarked: item.is_bookmarked || false})}
       />
     </View>
   );

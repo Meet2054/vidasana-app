@@ -5,6 +5,7 @@ import {View, TouchableOpacity, TextInput} from 'react-native';
 import {LocationPickerModal} from './modals/LocationPickerModal';
 import MapView, {Marker, PROVIDER_GOOGLE} from 'react-native-maps';
 import {Control, Controller, UseFormWatch, UseFormSetValue} from 'react-hook-form';
+import {useUserLocation} from '@/hooks';
 import {useTranslation} from 'react-i18next';
 
 type Props = {
@@ -17,9 +18,13 @@ type Props = {
 
 export function LocationInput({control, setValue, watch, label, error}: Props) {
   const {t} = useTranslation();
+  const {location: deviceLocation} = useUserLocation();
   const [isLocationPickerVisible, setLocationPickerVisible] = useState(false);
   const lat = watch('lat');
   const lng = watch('lng');
+
+  // Compose the initial location: prefer existing form value, fall back to device GPS
+  const pickerInitialLocation = lat && lng ? {lat, lng} : deviceLocation ? {lat: deviceLocation.latitude, lng: deviceLocation.longitude} : null;
 
   return (
     <View className="mb-6">
@@ -91,7 +96,7 @@ export function LocationInput({control, setValue, watch, label, error}: Props) {
       <LocationPickerModal
         visible={isLocationPickerVisible}
         onClose={() => setLocationPickerVisible(false)}
-        initialLocation={lat && lng ? {lat, lng} : null}
+        initialLocation={pickerInitialLocation}
         onConfirm={(loc) => {
           setValue('lat', loc.lat, {shouldValidate: true});
           setValue('lng', loc.lng, {shouldValidate: true});

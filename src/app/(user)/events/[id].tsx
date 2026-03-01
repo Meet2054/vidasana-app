@@ -176,7 +176,12 @@ export default function UserEventDetailsScreen() {
       }
 
       // Check if liked
-      const {count} = await supabase.from('event_bookmarks').select('*', {count: 'exact', head: true}).eq('event', id).eq('user', user.id);
+      const {count} = await supabase
+        .from('bookmark')
+        .select('*', {count: 'exact', head: true})
+        .eq('item_id', id)
+        .eq('type', 'event')
+        .eq('user', user.id);
 
       return {
         ...data,
@@ -253,10 +258,10 @@ export default function UserEventDetailsScreen() {
   const toggleLikeMutation = useMutation({
     mutationFn: async ({isLiked}: {isLiked: boolean}) => {
       if (isLiked) {
-        const {error} = await supabase.from('event_bookmarks').delete().eq('event', id).eq('user', user.id);
+        const {error} = await supabase.from('bookmark').delete().eq('item_id', id).eq('type', 'event').eq('user', user.id);
         if (error) throw error;
       } else {
-        const {error} = await supabase.from('event_bookmarks').insert({event: id, user: user.id});
+        const {error} = await supabase.from('bookmark').insert({item_id: id, type: 'event', user: user.id});
         if (error) throw error;
       }
     },

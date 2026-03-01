@@ -14,6 +14,38 @@ export type Database = {
   }
   public: {
     Tables: {
+      bookmark: {
+        Row: {
+          created_at: string | null
+          id: string
+          item_id: string
+          type: string
+          user: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          item_id: string
+          type: string
+          user: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          item_id?: string
+          type?: string
+          user?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookmark_user_fkey1"
+            columns: ["user"]
+            isOneToOne: false
+            referencedRelation: "profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           created_at: string
@@ -189,42 +221,6 @@ export type Database = {
           },
         ]
       }
-      event_bookmarks: {
-        Row: {
-          created_at: string | null
-          event: string
-          id: string
-          user: string
-        }
-        Insert: {
-          created_at?: string | null
-          event: string
-          id?: string
-          user: string
-        }
-        Update: {
-          created_at?: string | null
-          event?: string
-          id?: string
-          user?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "event_bookmarks_event_fkey"
-            columns: ["event"]
-            isOneToOne: false
-            referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "event_bookmarks_user_fkey1"
-            columns: ["user"]
-            isOneToOne: false
-            referencedRelation: "profile"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       event_reviews: {
         Row: {
           comment: string | null
@@ -301,44 +297,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "event_ticket_types_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      event_translations: {
-        Row: {
-          created_at: string
-          description: string | null
-          event_id: string
-          id: string
-          lang_code: string
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          event_id: string
-          id?: string
-          lang_code: string
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          event_id?: string
-          id?: string
-          lang_code?: string
-          title?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "event_translations_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
@@ -582,44 +540,6 @@ export type Database = {
           },
         ]
       }
-      service_translations: {
-        Row: {
-          created_at: string
-          description: string | null
-          id: string
-          lang_code: string
-          service_id: string
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          lang_code: string
-          service_id: string
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          lang_code?: string
-          service_id?: string
-          title?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "service_translations_service_fkey"
-            columns: ["service_id"]
-            isOneToOne: false
-            referencedRelation: "services"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       services: {
         Row: {
           active: boolean
@@ -743,42 +663,6 @@ export type Database = {
           },
           {
             foreignKeyName: "services_booking_user_fkey"
-            columns: ["user"]
-            isOneToOne: false
-            referencedRelation: "profile"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      services_bookmark: {
-        Row: {
-          created_at: string
-          id: string
-          service: string
-          user: string | null
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          service: string
-          user?: string | null
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          service?: string
-          user?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "bookmark_service_fkey"
-            columns: ["service"]
-            isOneToOne: false
-            referencedRelation: "services"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "bookmark_user_fkey"
             columns: ["user"]
             isOneToOne: false
             referencedRelation: "profile"
@@ -913,11 +797,13 @@ export type Database = {
         }
         Returns: undefined
       }
-      search_events: {
+      integrated_search: {
         Args: {
           category_filter?: number[]
           date_from?: string
           date_to?: string
+          day_filter?: Database["public"]["Enums"]["week_day"][]
+          p_type?: string
           page_limit?: number
           page_offset?: number
           radius_meters?: number
@@ -937,13 +823,13 @@ export type Database = {
           end_at: string
           id: string
           images: string[]
-          lat: number
-          lng: number
+          is_bookmarked: boolean
+          location: unknown
           price: number
-          provider: Json
+          provider_id: string
           start_at: string
           title: string
-          total_reviews: number
+          week_day: Database["public"]["Enums"]["week_day"][]
         }[]
       }
       search_map_items: {
@@ -961,18 +847,19 @@ export type Database = {
           type: string
         }[]
       }
-      search_services: {
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
+      your_function_name: {
         Args: {
-          category_filter?: number[]
-          day_filter?: string[]
-          page_limit?: number
-          page_offset?: number
-          radius_meters?: number
-          search_query?: string
-          sort_by?: string
-          target_lang?: string
-          user_lat?: number
-          user_lng?: number
+          category_filter: string[]
+          day_filter: Database["public"]["Enums"]["week_day"][]
+          page_limit: number
+          page_offset: number
+          radius_meters: number
+          search_query: string
+          sort_by: string
+          user_lat: number
+          user_lng: number
         }
         Returns: {
           avg_rating: number
@@ -991,8 +878,6 @@ export type Database = {
           week_day: string[]
         }[]
       }
-      show_limit: { Args: never; Returns: number }
-      show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
       booking_status: "booked" | "cancel" | "completed" | "disputed"

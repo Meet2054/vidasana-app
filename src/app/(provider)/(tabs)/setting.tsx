@@ -86,14 +86,7 @@ export default function ProviderSettingsScreen() {
       setIsFetchingProfile(true);
       const {data: profileData, error: profileError} = await supabase
         .from('profile')
-        .select(
-          `
-          name, 
-          phone, 
-          role, 
-          image
-        `
-        )
+        .select('name, phone, role, image')
         .eq('id', currentUser.id)
         .single();
 
@@ -109,18 +102,7 @@ export default function ProviderSettingsScreen() {
         if (userRole === 'provider') {
           const {data: pData, error: pError} = await supabase
             .from('provider')
-            .select(
-              `
-              country,
-              type,
-              description,
-              service_type,
-              pricing,
-              session_duration,
-              language,
-              location
-            `
-            )
+            .select('type, country, pricing, language, location, description, service_type, session_duration')
             .eq('id', currentUser.id)
             .single();
 

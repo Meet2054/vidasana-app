@@ -74,7 +74,11 @@ export default function UserSettingsScreen() {
         });
 
         if (data.image) {
-          if (data.image.startsWith('http')) {
+          // Prefer the session URL — it carries the ?t= cache-buster written after upload
+          const sessionImageUrl = currentUser?.user_metadata?.image;
+          if (sessionImageUrl && sessionImageUrl.startsWith('http')) {
+            setProfileImage(sessionImageUrl);
+          } else if (data.image.startsWith('http')) {
             setProfileImage(data.image);
           } else {
             const {data: imageData} = supabase.storage.from('profile').getPublicUrl(data.image);
@@ -97,9 +101,7 @@ export default function UserSettingsScreen() {
     }
   };
 
-  const handlePasswordChange = () => {
-    router.push('/(settings)/change-password');
-  };
+  const handlePasswordChange = () => router.push('/(settings)/change-password');
 
   const handleEditPress = () => {
     if (isBusy) return;

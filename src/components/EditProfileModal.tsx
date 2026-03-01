@@ -21,6 +21,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({visible, onCl
   const {t} = useTranslation();
   const insets = useSafeAreaInsets();
   const currentUser = useAppStore((state) => state.session?.user);
+  const setSession = useAppStore((state) => state.setSession);
 
   const [editedInfo, setEditedInfo] = useState({fullName: '', phone: ''});
   const [isSaving, setIsSaving] = useState(false);
@@ -66,6 +67,12 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({visible, onCl
 
       // 0. Upload Image if changed
       if (profileImage && profileImage !== initialData.image) {
+        // Delete the old image first (handles extension changes like .jpeg → .png)
+        if (initialData.image) {
+          const oldPath = initialData.image.startsWith('http') ? (initialData.image.match(/\/profile\/(.+?)(?:\?|$)/)?.[1] ?? '') : initialData.image;
+          if (oldPath) await supabase.storage.from('profile').remove([oldPath]);
+        }
+
         const fileExt = profileImage.split('.').pop()?.split('?')[0] || 'jpeg';
         const fileName = `${currentUser.id}.${fileExt}`;
 
@@ -87,19 +94,27 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({visible, onCl
         uploadedImagePath = fileName;
       }
 
+      // Resolve the cache-busted public URL to propagate to auth metadata & store
+      const resolvedImageUrl = uploadedImagePath
+        ? `${supabase.storage.from('profile').getPublicUrl(uploadedImagePath).data.publicUrl}?t=${Date.now()}`
+        : undefined;
+
       const profileUpdates: any = {name: trimmedName, phone: fullPhoneNumber || null, country_code: countryCode};
       if (uploadedImagePath !== undefined) {
-        profileUpdates.image = uploadedImagePath;
+        profileUpdates.image = uploadedImagePath; // store the relative path in DB
       }
 
       const {data, error} = await supabase.from('profile').update(profileUpdates).eq('id', currentUser.id).select('name, phone, image').single();
 
       if (error) throw error;
 
-      onSuccess({
-        fullName: data?.name ?? trimmedName,
-        phone: data?.phone ?? fullPhoneNumber,
-      });
+      await supabase.auth.updateUser({data: {full_name: trimmedName, ...(resolvedImageUrl ? {image: resolvedImageUrl} : {})}});
+
+      // Refresh session in store so all subscribers (HomeHeader, etc.) update instantly
+      const {data: refreshed} = await supabase.auth.refreshSession();
+      if (refreshed?.session) setSession(refreshed.session);
+
+      onSuccess({fullName: data?.name ?? trimmedName, phone: data?.phone ?? fullPhoneNumber});
       onClose();
     } catch (saveError) {
       console.error('Error updating profile:', saveError);

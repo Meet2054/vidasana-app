@@ -27,17 +27,18 @@ export default function LikedItemsScreen() {
       if (activeTab === 'services') {
         // Fetch Service Bookmarks
         const {data: bookmarks, error} = await supabase
-          .from('services_bookmark')
+          .from('bookmark')
           .select(
             `
             id,
             created_at,
-            service:services (
+            service:services!item_id (
               id, title, description, price, images, capacity
             )
           `
           )
-          .eq('user', user.id);
+          .eq('user', user.id)
+          .eq('type', 'service');
 
         if (error) {
           console.error('Error fetching service bookmarks:', error);
@@ -56,9 +57,10 @@ export default function LikedItemsScreen() {
       } else {
         // Fetch Event Bookmarks (Likes)
         const {data: bookmarks, error} = await supabase
-          .from('event_bookmarks')
-          .select('id, created_at, event:events (id, title, description, start_at, end_at, images, category, delete)')
-          .eq('user', user.id);
+          .from('bookmark')
+          .select('id, created_at, event:events!item_id (id, title, description, start_at, end_at, images, category, delete)')
+          .eq('user', user.id)
+          .eq('type', 'event');
 
         if (error) throw error;
 

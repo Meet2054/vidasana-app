@@ -1,17 +1,16 @@
-import React, {useEffect} from 'react';
-import {View, BackHandler} from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
-import {Ionicons} from '@expo/vector-icons';
-import {Display, Subtitle, Button} from '@/components';
-import {useRouter} from 'expo-router';
-import {supabase} from '@/utils/supabase';
+import {supabase} from '@/utils';
 import {useAppStore} from '@/store';
+import {useRouter} from 'expo-router';
+import React, {useEffect} from 'react';
+import {Ionicons} from '@expo/vector-icons';
+import {View, BackHandler} from 'react-native';
+import {Display, Subtitle, Button} from '@/components';
+import {SafeAreaView} from 'react-native-safe-area-context';
 
 export default function UnderReviewScreen() {
   const router = useRouter();
   const {user} = useAppStore((s) => s.session!);
 
-  // Prevent going back
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => true);
     return () => subscription.remove();
@@ -41,7 +40,7 @@ export default function UnderReviewScreen() {
 
       <View className="w-full">
         <Button label="Refresh Status" onPress={handleRefresh} fullWidth className="mb-4" />
-        <Button label="Log Out" variant="outline" onPress={() => supabase.auth.signOut()} fullWidth />
+        <Button label="Log Out" variant="outline" fullWidth onPress={() => supabase.auth.signOut().finally(() => router.replace('/auth'))} />
       </View>
     </SafeAreaView>
   );

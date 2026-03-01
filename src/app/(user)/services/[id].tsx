@@ -127,39 +127,21 @@ export default function UserServiceDetailsScreen() {
     queryFn: async () => {
       const {data, error} = await supabase.rpc('get_service_by_id', {target_id: id});
       if (error) throw error;
-      return data && data.length > 0 ? data[0] : null;
-    },
-  });
-
-  // Fetch Rating Summary
-  const {data: ratingSummary} = useQuery({
-    queryKey: ['service_rating_summary', id],
-    queryFn: async () => {
-      const {data, error} = await supabase.rpc('get_service_rating_summary', {target_service_id: id});
-      if (error) throw error;
-      return data && data.length > 0 ? data[0] : {avg_rating: 0, count: 0};
+      return (data as any) ?? null;
     },
     enabled: !!id,
   });
 
-  // Fetch Reviews
-  const {data: reviews} = useQuery({
-    queryKey: ['service_reviews', id],
-    queryFn: async () => {
-      const {data, error} = await supabase.rpc('get_service_reviews', {target_service_id: id});
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!id,
-  });
+  const ratingSummary = {avg_rating: service?.avg_rating ?? 0, count: service?.review_count ?? 0};
+  const reviews: any[] = service?.reviews ?? [];
 
   const toggleBookmarkMutation = useMutation({
     mutationFn: async ({isBookmarked}: {isBookmarked: boolean}) => {
       if (isBookmarked) {
-        const {error} = await supabase.from('services_bookmark').delete().eq('service', id).eq('user', user.id);
+        const {error} = await supabase.from('bookmark').delete().eq('item_id', id).eq('type', 'service').eq('user', user.id);
         if (error) throw error;
       } else {
-        const {error} = await supabase.from('services_bookmark').insert({service: id, user: user.id});
+        const {error} = await supabase.from('bookmark').insert({item_id: id, type: 'service', user: user.id});
         if (error) throw error;
       }
     },

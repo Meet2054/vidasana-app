@@ -6,18 +6,13 @@ import {supabase} from '@/utils/supabase';
 import {router} from 'expo-router';
 import MapView, {Marker, PROVIDER_GOOGLE, Region} from 'react-native-maps';
 import Supercluster from 'supercluster';
-import {Feature, Point} from 'geojson';
-import {useDebouncer} from '@/hooks';
-import {useUserLocation} from '@/hooks';
+import {useUserLocation, useDebouncer} from '@/hooks';
 import {Body, Caption, Loader, H3, Subtitle} from '@/components';
 import {Ionicons} from '@expo/vector-icons';
-import {Rating} from 'react-native-ratings';
 import {useTranslation} from 'react-i18next';
 
 // Helper to convert zoom level to radius (approximate)
-const getRadiusFromZoom = (zoom: number) => {
-  return Math.max(1, 40000 / Math.pow(2, zoom));
-};
+const getRadiusFromZoom = (zoom: number) => Math.max(1, 40000 / Math.pow(2, zoom));
 
 export default function MapScreen() {
   const {t} = useTranslation();
@@ -26,8 +21,11 @@ export default function MapScreen() {
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const slideAnim = useRef(new Animated.Value(0)).current;
 
-  // State for fetching parameters (Debounced)
-  const [fetchParams, setFetchParams, debouncedParams] = useDebouncer({zoom: 14, radius: 10, lat: 37.7749, lng: -122.4194}, 1000);
+  // State for fetching parameters (Debounced) — null until GPS resolves
+  const [fetchParams, setFetchParams, debouncedParams] = useDebouncer<{zoom: number; radius: number; lat: number | null; lng: number | null}>(
+    {zoom: 14, radius: 10, lat: null, lng: null},
+    1000
+  );
 
   // -- User Location Setup --
   const {location, isLoading: isLocationLoading} = useUserLocation();
@@ -42,14 +40,24 @@ export default function MapScreen() {
       };
       setInitialRegion(region);
       setFetchParams({lat: location.latitude, lng: location.longitude, radius: 10, zoom: 14});
-
-      // Animate if map is ready
       mapRef.current?.animateToRegion(region, 1000);
     } else if (!isLocationLoading && !location) {
-      // Default SF
-      setInitialRegion({latitude: 37.7749, longitude: -122.4194, latitudeDelta: 0.0922, longitudeDelta: 0.0421});
+      // Permission denied or unavailable — show world view, no SF hardcode
+      setInitialRegion({latitude: 20, longitude: 0, latitudeDelta: 60, longitudeDelta: 60});
     }
   }, [location, isLocationLoading]);
+
+  const handleGoToMyLocation = () => {
+    if (location) {
+      const region = {
+        latitude: location.latitude,
+        longitude: location.longitude,
+        latitudeDelta: 0.0922,
+        longitudeDelta: 0.0421,
+      };
+      mapRef.current?.animateToRegion(region, 600);
+    }
+  };
 
   // Animate bottom sheet
   useEffect(() => {
@@ -72,7 +80,7 @@ export default function MapScreen() {
   // -- Data Fetching --
   const {data: items, isLoading} = useQuery({
     staleTime: 1000 * 60 * 5,
-    enabled: !!initialRegion,
+    enabled: !!initialRegion && debouncedParams.lat !== null && debouncedParams.lng !== null,
     queryKey: ['map_items', debouncedParams.lat, debouncedParams.lng, debouncedParams.radius],
     queryFn: async () => {
       const radiusMeters = Math.round(debouncedParams.radius * 1000);
@@ -84,8 +92,8 @@ export default function MapScreen() {
       });
 
       const {data, error} = await supabase.rpc('search_map_items', {
-        user_lat: debouncedParams.lat,
-        user_lng: debouncedParams.lng,
+        user_lat: debouncedParams.lat!,
+        user_lng: debouncedParams.lng!,
         radius_meters: radiusMeters,
       });
 
@@ -110,7 +118,7 @@ export default function MapScreen() {
           type: 'Feature',
           properties: {cluster: false, itemId: i.id, title: i.title, itemType: i.type},
           geometry: {type: 'Point', coordinates: [i.lng, i.lat]},
-        }) as Feature<Point>
+        }) as any
     );
   // @ts-ignore
   index.load(points);
@@ -151,9 +159,9 @@ export default function MapScreen() {
         (i) =>
           ({
             type: 'Feature',
-            properties: {cluster: false, itemId: i.id, title: i.title, itemType: i.type},
             geometry: {type: 'Point', coordinates: [i.lng, i.lat]},
-          }) as Feature<Point>
+            properties: {cluster: false, itemId: i.id, title: i.title, itemType: i.type},
+          }) as any
       );
     // @ts-ignore
     index.load(points);
@@ -215,6 +223,16 @@ export default function MapScreen() {
           );
         })}
       </MapView>
+
+      {/* My Location FAB */}
+      {location && (
+        <TouchableOpacity
+          onPress={handleGoToMyLocation}
+          className="bottom-safe-offset-8 absolute right-4 h-12 w-12 items-center justify-center rounded-full bg-white shadow-lg"
+          style={{elevation: 5}}>
+          <Ionicons name="locate" size={22} color="#00594f" />
+        </TouchableOpacity>
+      )}
 
       {/* Loading Indicator */}
       <Loader visible={isLoading} />
