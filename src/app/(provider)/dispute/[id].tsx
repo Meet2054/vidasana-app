@@ -55,7 +55,7 @@ export default function ProviderDisputeScreen() {
         .from('disputes')
         .update({
           response_provider: responseText,
-          status: 'provider_replied',
+          status: 'under_review',
           updated_at: new Date().toISOString(),
         })
         .eq('id', dispute.id);
@@ -96,7 +96,7 @@ export default function ProviderDisputeScreen() {
     switch (status) {
       case 'open':
         return 'text-red-600 bg-red-100'; // Action needed from provider usually
-      case 'provider_replied':
+      case 'under_review':
         return 'text-blue-600 bg-blue-100';
       case 'resolved_refund':
         return 'text-gray-600 bg-gray-200';

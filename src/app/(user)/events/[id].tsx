@@ -168,11 +168,7 @@ export default function UserEventDetailsScreen() {
     queryKey: ['event', id, i18n.language],
     queryFn: async () => {
       console.log('[EventDetails] Fetching event with ID:', id);
-      const {data, error} = await supabase
-        .from('events')
-        .select('*, event_translations(*), event_ticket_types(*), categories(*)')
-        .eq('id', id)
-        .single();
+      const {data, error} = await supabase.from('events').select('*, event_ticket_types(*), categories(*)').eq('id', id).single();
 
       if (error) {
         console.error('Fetch Event Error:', error);
@@ -182,15 +178,8 @@ export default function UserEventDetailsScreen() {
       // Check if liked
       const {count} = await supabase.from('event_bookmarks').select('*', {count: 'exact', head: true}).eq('event', id).eq('user', user.id);
 
-      const translation =
-        data.event_translations.find((tr: any) => tr.lang_code === i18n.language) ||
-        data.event_translations.find((tr: any) => tr.lang_code === 'en') ||
-        data.event_translations[0];
-
       return {
         ...data,
-        title: translation?.title || 'Untitled Event',
-        description: translation?.description || 'No description available',
         lat: (data as any).location?.coordinates ? (data as any).location.coordinates[1] : null,
         lng: (data as any).location?.coordinates ? (data as any).location.coordinates[0] : null,
         is_liked: count ? count > 0 : false,
@@ -455,7 +444,7 @@ export default function UserEventDetailsScreen() {
                   zoomEnabled={false}
                   pitchEnabled={false}
                   rotateEnabled={false}>
-                  <Marker coordinate={{latitude: event.lat, longitude: event.lng}} title={event.title} pinColor="#00594f" />
+                  <Marker coordinate={{latitude: event.lat, longitude: event.lng}} title={event.title || undefined} pinColor="#00594f" />
                 </MapView>
 
                 {/* Overlay for interaction */}

@@ -4,15 +4,60 @@ import {useAppStore} from '@/store';
 import {Display, Subtitle, Body} from './';
 import {Ionicons} from '@expo/vector-icons';
 import {useTranslation} from 'react-i18next';
-import {View, Modal, TouchableOpacity, Linking, ScrollView, Text, Image} from 'react-native';
+import {scheduleOnRN} from 'react-native-worklets';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {Gesture, GestureDetector} from 'react-native-gesture-handler';
+import Animated, {useSharedValue, useAnimatedStyle, withSpring} from 'react-native-reanimated';
+import {View, Modal, TouchableOpacity, Dimensions, Linking, ScrollView, Text, Image} from 'react-native';
 
-export const SOSFAB = () => {
+const {width: SCREEN_WIDTH, height: SCREEN_HEIGHT} = Dimensions.get('window');
+
+const SIZE = 56;
+const EDGE_MARGIN = 12;
+const CONFIG = {mass: 0.8, damping: 15, stiffness: 120};
+
+export const SOSFAB: React.FC = () => {
   const setSOSOpen = useAppStore((s) => s.setSOSOpen);
+  const insets = useSafeAreaInsets();
+
+  const TOP_LIMIT = insets.top + 10;
+  const BOTTOM_LIMIT = insets.bottom + 80;
+
+  const offsetX = useSharedValue<number>(0);
+  const offsetY = useSharedValue<number>(0);
+  const translateY = useSharedValue<number>(SCREEN_HEIGHT / 2);
+  const translateX = useSharedValue<number>(SCREEN_WIDTH - SIZE - EDGE_MARGIN);
+
+  const openSOS = () => setSOSOpen(true);
+
+  const panGesture = Gesture.Pan()
+    .minDistance(5)
+    .onBegin(() => {
+      offsetX.value = translateX.value;
+      offsetY.value = translateY.value;
+    })
+    .onUpdate((event) => {
+      translateX.value = offsetX.value + event.translationX;
+      translateY.value = offsetY.value + event.translationY;
+    })
+    .onEnd(() => {
+      translateX.value = withSpring(translateX.value < SCREEN_WIDTH / 2 ? EDGE_MARGIN : SCREEN_WIDTH - SIZE - EDGE_MARGIN, CONFIG);
+      if (translateY.value < TOP_LIMIT) translateY.value = withSpring(TOP_LIMIT, CONFIG);
+      if (translateY.value > SCREEN_HEIGHT - BOTTOM_LIMIT - SIZE) translateY.value = withSpring(SCREEN_HEIGHT - BOTTOM_LIMIT - SIZE, CONFIG);
+    });
+
+  const tapGesture = Gesture.Tap().onEnd(() => scheduleOnRN(openSOS));
+
+  const composedGesture = Gesture.Exclusive(panGesture, tapGesture);
+
+  const animatedStyle = useAnimatedStyle(() => ({transform: [{translateX: translateX.value}, {translateY: translateY.value}]}));
 
   return (
-    <TouchableOpacity onPress={() => setSOSOpen(true)} className="elevation-5 bottom-safe-offset-16 android:mb-4 absolute left-5 z-50 shadow-lg">
-      <Image source={IMAGES.sos} className="h-14 w-14" />
-    </TouchableOpacity>
+    <GestureDetector gesture={composedGesture}>
+      <Animated.View style={animatedStyle} className="elevation-5 absolute z-50">
+        <Image source={IMAGES.sos} className="h-14 w-14" resizeMode="contain" />
+      </Animated.View>
+    </GestureDetector>
   );
 };
 

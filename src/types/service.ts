@@ -13,12 +13,8 @@ export type UnifiedImage = {
 };
 
 export type ServiceFormValues = {
-  translations: {
-    [key in LanguageCode]: {
-      title: string;
-      description: string;
-    };
-  };
+  title: string;
+  description: string;
   category: number | null;
   price: string;
   capacity: string;

@@ -1,4 +1,5 @@
 export * from './EditProfileModal';
+export * from './modals/ProviderEditProfileModal';
 export * from './Loader';
 export * from './Avatar';
 export * from './BookingCard';
@@ -16,15 +17,12 @@ export * from './ServiceCard';
 export * from './EventCard';
 export * from './modals/MoodCheckInModal';
 export * from './modals/FilterModal'; // Exports FilterState
-export * from './modals/FilterModal';
 export * from './LegalModal';
 export * from './Typography';
 export * from './modals/LocationPickerModal';
 export * from './home/CategoryGrid';
 export * from './home/HomeHeader';
 export * from './LanguagePicker';
-export * from './LanguageTabs';
-export * from './TranslatableFields';
 export * from './ImageInput';
 export * from './LocationInput';
-export * from './ProfileScreen';
+export * from './forms';

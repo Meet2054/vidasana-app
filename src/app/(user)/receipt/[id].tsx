@@ -29,14 +29,11 @@ export default function ReceiptScreen() {
       if (type === 'event') {
         const {data, error} = await supabase
           .from('event_booking')
-          .select(` *, event:events ( *, provider:profile (*), event_translations (*)), ticket:event_ticket_types (*), payment:payments (*)`)
+          .select(` *, event:events ( *, provider:profile (*)), ticket:event_ticket_types (*), payment:payments (*)`)
           .eq('id', id)
           .single();
 
         if (error) throw error;
-
-        // Find translation (English or first available)
-        const translation = data.event?.event_translations?.find((t: any) => t.lang_code === 'en') || data.event?.event_translations?.[0];
 
         // Extract location from PostGIS point if available
         const locationData = data.event?.location as any;
@@ -48,7 +45,7 @@ export default function ReceiptScreen() {
         // Normalize structure for UI
         return {
           ...data,
-          title: translation?.title || 'Event',
+          title: data.event?.title || 'Event',
           subtitle: data.ticket?.name || 'Ticket',
           providerName: data.event?.provider?.name || 'Organizer',
           date: data.event?.start_at,
@@ -58,6 +55,8 @@ export default function ReceiptScreen() {
           ticketType: data.ticket?.name,
           quantity: data.quantity || 1,
           status: data.status,
+          service_id: null,
+          event_id: data.event_id,
         };
       }
 
@@ -70,7 +69,6 @@ export default function ReceiptScreen() {
             service:services (
                 *,
                 provider:profile (*),
-                service_translations (*),
                 category:categories (*)
             ),
             payment:payments (*)
@@ -81,19 +79,21 @@ export default function ReceiptScreen() {
 
       if (error) throw error;
 
-      // Find translation
-      const translation = data.service?.service_translations?.find((t: any) => t.lang_code === 'en') || data.service?.service_translations?.[0];
-
       // Normalize structure for UI
       return {
         ...data,
-        title: translation?.title || 'Service',
+        title: data.service?.title || 'Service',
         subtitle: data.service?.category?.name || 'Wellness',
         providerName: data.service?.provider?.name || 'Provider',
         date: data.appointed,
         price: data.price,
         isEvent: false,
+        location: null,
+        ticketType: null,
+        quantity: null,
         status: data.status,
+        service_id: typeof data.service === 'string' ? data.service : (data as any).service?.id || null,
+        event_id: null,
       };
     },
     enabled: !!id,
@@ -309,8 +309,8 @@ export default function ReceiptScreen() {
             <TouchableOpacity
               onPress={() => {
                 const targetPath = booking?.isEvent
-                  ? `/(user)/events/${booking.event_id || booking.event?.id}`
-                  : `/(user)/services/${booking.service_id || booking.service?.id}`;
+                  ? `/(user)/events/${(booking as any).event_id || (booking as any).event?.id}`
+                  : `/(user)/services/${(booking as any).service_id || (booking as any).service?.id}`;
                 navigate(targetPath as any);
               }}
               className="flex-row items-center justify-center space-x-2 rounded-xl bg-gray-100 py-3 active:bg-gray-200">

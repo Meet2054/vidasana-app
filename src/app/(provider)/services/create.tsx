@@ -5,22 +5,24 @@ import {useAppStore} from '@/store';
 import {useForm, Controller, type FieldErrors} from 'react-hook-form';
 import {useQuery, useMutation, useQueryClient} from '@tanstack/react-query';
 import {useRouter} from 'expo-router';
-import {View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator} from 'react-native';
+import {View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert} from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import React, {useState} from 'react';
 import Toast from 'react-native-toast-message';
-import {ServiceFormValues, LanguageCode, WeekDay} from '@/types/service';
-import {LANGUAGES, getDays} from '@/constants';
+import {ServiceFormValues, WeekDay} from '@/types/service';
+import {getDays} from '@/constants';
 import {useTranslation} from 'react-i18next';
-import {H2, Body, Caption, LanguageTabs, TranslatableFields, ImageInput, LocationInput} from '@/components';
+import {H2, Body, Caption, ImageInput, LocationInput} from '@/components';
+import {useStripeStatus} from '@/hooks';
 
 export default function CreateServiceScreen() {
   const router = useRouter();
   const {t} = useTranslation();
   const queryClient = useQueryClient();
   const [isTimePickerVisible, setTimePickerVisible] = useState(false);
-  const [activeLanguage, setActiveLanguage] = useState<LanguageCode>('en');
   const [activeTimeField, setActiveTimeField] = useState<'start_at' | 'end_at' | null>(null);
+
+  const {data: stripeStatus, isLoading: isCheckingStripe} = useStripeStatus();
 
   const {
     watch,
@@ -30,7 +32,8 @@ export default function CreateServiceScreen() {
     formState: {errors, isSubmitting},
   } = useForm<ServiceFormValues>({
     defaultValues: {
-      translations: {en: {title: '', description: ''}, es: {title: '', description: ''}, fr: {title: '', description: ''}},
+      title: '',
+      description: '',
       category: null,
       price: '',
       capacity: '',
@@ -75,6 +78,8 @@ export default function CreateServiceScreen() {
 
       // 3. Insert Service (Base Data)
       const createPayload: any = {
+        title: data.title,
+        description: data.description,
         capacity: parseInt(data.capacity),
         category: data.category!,
         end_at: data.end_at!.toLocaleTimeString('en-US', {hour12: false}),
@@ -91,18 +96,6 @@ export default function CreateServiceScreen() {
 
       if (insertError) throw insertError;
       if (!serviceData) throw new Error('Failed to create service');
-
-      // 4. Insert Translations
-      const translationInserts = LANGUAGES.map((lang) => ({
-        lang_code: lang.code,
-        service_id: serviceData.id,
-        title: data.translations[lang.code].title,
-        description: data.translations[lang.code].description,
-      }));
-
-      const {error: translationError} = await supabase.from('service_translations').insert(translationInserts);
-
-      if (translationError) throw translationError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({queryKey: ['services']});
@@ -116,16 +109,29 @@ export default function CreateServiceScreen() {
   });
 
   const onInvalid = (errors: FieldErrors<ServiceFormValues>) => {
-    if (errors.translations) {
-      for (const lang of LANGUAGES) {
-        if (errors.translations[lang.code]?.title || errors.translations[lang.code]?.description) {
-          return setActiveLanguage(lang.code);
-        }
-      }
-    }
+    Toast.show({type: 'error', text1: 'Validation Error', text2: 'Please check the form for errors.'});
   };
 
-  const onSubmit = (data: ServiceFormValues) => createServiceMutation.mutate(data);
+  const onSubmit = (data: ServiceFormValues) => {
+    const isPaidService = (parseFloat(data.price) || 0) > 0;
+
+    if (isPaidService && !isCheckingStripe && !stripeStatus?.isConnected) {
+      Alert.alert(
+        t('stripe.notConnectedTitle', 'Stripe Not Connected'),
+        t(
+          'stripe.notConnectedMessage',
+          'You must connect your bank account via Stripe before you can create paid services so you can receive payouts.'
+        ),
+        [
+          {text: t('common.cancel', 'Cancel'), style: 'cancel'},
+          {text: t('stripe.connectNow', 'Connect Stripe'), onPress: () => router.push('/(provider)/payment-setup')},
+        ]
+      );
+      return;
+    }
+
+    createServiceMutation.mutate(data);
+  };
 
   // Time Picker Logic
   const handleConfirmTime = (date: Date) => {
@@ -160,19 +166,46 @@ export default function CreateServiceScreen() {
           <H2 className="text-gray-900">{t('services.createTitle')}</H2>
         </View>
 
-        {/* Language Tabs */}
-        <LanguageTabs languages={LANGUAGES} activeLanguage={activeLanguage} onChange={setActiveLanguage} />
+        {/* Title */}
+        <View className="mb-4">
+          <Body className="mb-1 font-nunito-bold text-sm text-gray-700">{t('services.serviceTitlePlaceholder', 'Service Title')}</Body>
+          <Controller
+            control={control}
+            name="title"
+            rules={{required: 'Title is required'}}
+            render={({field: {onChange, value}, fieldState: {error}}) => (
+              <>
+                <TextInput
+                  value={value}
+                  onChangeText={onChange}
+                  placeholder={t('services.serviceTitlePlaceholder', 'Service Title')}
+                  className="rounded-lg border border-gray-300 bg-white p-3 font-nunito"
+                />
+                {error?.message && <Caption className="mt-1 text-red-500">{error.message}</Caption>}
+              </>
+            )}
+          />
+        </View>
 
-        {/* Multilingual Fields */}
-        <TranslatableFields
-          t={t}
-          errors={errors}
-          control={control}
-          languages={LANGUAGES}
-          activeLanguage={activeLanguage}
-          titlePlaceholder={t('services.serviceTitlePlaceholder')}
-          descriptionPlaceholder={t('events.descriptionPlaceholder')}
-        />
+        {/* Description */}
+        <View className="mb-4">
+          <Body className="mb-1 font-nunito-bold text-sm text-gray-700">{t('events.descriptionPlaceholder', 'Description')}</Body>
+          <Controller
+            control={control}
+            name="description"
+            render={({field: {onChange, value}}) => (
+              <TextInput
+                value={value}
+                onChangeText={onChange}
+                placeholder={t('events.descriptionPlaceholder', 'Description')}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+                className="rounded-lg border border-gray-300 bg-white p-3 font-nunito"
+              />
+            )}
+          />
+        </View>
 
         {/* Images */}
         <ImageInput control={control} name="images" label={t('events.images')} />

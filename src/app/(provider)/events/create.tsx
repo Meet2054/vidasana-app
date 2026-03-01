@@ -5,23 +5,24 @@ import {useAppStore} from '@/store';
 import {useForm, Controller} from 'react-hook-form';
 import {useQuery, useMutation, useQueryClient} from '@tanstack/react-query';
 import {useRouter} from 'expo-router';
-import {View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator} from 'react-native';
+import {View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert} from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import React, {useState} from 'react';
 import Toast from 'react-native-toast-message';
 import {useTranslation} from 'react-i18next';
-import {H2, Body, Caption, LanguageTabs, TranslatableFields, ImageInput, LocationInput} from '@/components';
-import {EventFormValues, LanguageCode} from '@/types/events';
-import {LANGUAGES} from '@/constants';
+import {H2, Body, Caption, ImageInput, LocationInput} from '@/components';
+import {EventFormValues} from '@/types';
+import {useStripeStatus} from '@/hooks';
 
 export default function CreateEventScreen() {
-  const {back} = useRouter();
+  const {back, navigate} = useRouter();
   const {t} = useTranslation();
   const queryClient = useQueryClient();
   const [isTimePickerVisible, setTimePickerVisible] = useState(false);
   const [activeTimeField, setActiveTimeField] = useState<'start_at' | 'end_at' | 'book_till' | null>(null);
   const [datePickerMode, setDatePickerMode] = useState<'date' | 'time' | 'datetime'>('datetime');
-  const [activeLanguage, setActiveLanguage] = useState<LanguageCode>('en');
+
+  const {data: stripeStatus, isLoading: isCheckingStripe} = useStripeStatus();
 
   const {
     watch,
@@ -31,11 +32,8 @@ export default function CreateEventScreen() {
     formState: {errors, isSubmitting},
   } = useForm<EventFormValues>({
     defaultValues: {
-      translations: {
-        en: {title: '', description: ''},
-        es: {title: '', description: ''},
-        fr: {title: '', description: ''},
-      },
+      title: '',
+      description: '',
       category: null,
       start_at: null,
       end_at: null,
@@ -86,7 +84,8 @@ export default function CreateEventScreen() {
       const {data: eventData, error: insertError} = await supabase
         .from('events')
         .insert({
-          // title and description removed
+          title: data.title,
+          description: data.description,
           category: data.category!,
           start_at: data.start_at!.toISOString(),
           end_at: data.end_at!.toISOString(),
@@ -101,17 +100,6 @@ export default function CreateEventScreen() {
 
       if (insertError) throw insertError;
       if (!eventData) throw new Error('Failed to create event record');
-
-      // 4. Insert Translations
-      const translationInserts = LANGUAGES.map((lang) => ({
-        event_id: eventData.id,
-        lang_code: lang.code,
-        title: data.translations[lang.code].title,
-        description: data.translations[lang.code].description,
-      }));
-
-      const {error: translationError} = await supabase.from('event_translations').insert(translationInserts);
-      if (translationError) throw translationError;
 
       // 5. Insert Ticket Types
       if (data.ticket_types.length > 0) {
@@ -141,18 +129,29 @@ export default function CreateEventScreen() {
   });
 
   const onInvalid = (errors: any) => {
-    if (errors.translations) {
-      for (const lang of LANGUAGES) {
-        if (errors.translations[lang.code]?.title || errors.translations[lang.code]?.description) {
-          setActiveLanguage(lang.code);
-          return Toast.show({type: 'error', text1: 'Missing Information', text2: `Please fill in the ${lang.label} details.`});
-        }
-      }
-    }
     Toast.show({type: 'error', text1: 'Validation Error', text2: 'Please check the form for errors.'});
   };
 
-  const onSubmit = (data: EventFormValues) => mutate(data);
+  const onSubmit = (data: EventFormValues) => {
+    const hasPaidTicket = data.ticket_types.some((ticket) => (parseFloat(ticket.price) || 0) > 0);
+
+    if (hasPaidTicket && !isCheckingStripe && !stripeStatus?.isConnected) {
+      Alert.alert(
+        t('stripe.notConnectedTitle', 'Stripe Not Connected'),
+        t(
+          'stripe.notConnectedMessage',
+          'You must connect your bank account via Stripe before you can create paid events so you can receive payouts.'
+        ),
+        [
+          {text: t('common.cancel', 'Cancel'), style: 'cancel'},
+          {text: t('stripe.connectNow', 'Connect Stripe'), onPress: () => navigate('/(provider)/payment-setup')},
+        ]
+      );
+      return;
+    }
+
+    mutate(data);
+  };
 
   // --- Helpers ---
 
@@ -198,19 +197,46 @@ export default function CreateEventScreen() {
           <H2 className="text-gray-900">{t('events.createTitle')}</H2>
         </View>
 
-        {/* Language Tabs */}
-        <LanguageTabs languages={LANGUAGES} activeLanguage={activeLanguage} onChange={setActiveLanguage} />
+        {/* Title */}
+        <View className="mb-4">
+          <Body className="mb-1 font-nunito-bold text-sm text-gray-700">{t('events.eventTitlePlaceholder', 'Event Title')}</Body>
+          <Controller
+            control={control}
+            name="title"
+            rules={{required: 'Title is required'}}
+            render={({field: {onChange, value}, fieldState: {error}}) => (
+              <>
+                <TextInput
+                  value={value}
+                  onChangeText={onChange}
+                  placeholder={t('events.eventTitlePlaceholder', 'Event Title')}
+                  className="rounded-lg border border-gray-300 bg-white p-3 font-nunito"
+                />
+                {error?.message && <Caption className="mt-1 text-red-500">{error.message}</Caption>}
+              </>
+            )}
+          />
+        </View>
 
-        {/* Multilingual Fields */}
-        <TranslatableFields
-          t={t}
-          errors={errors}
-          control={control}
-          languages={LANGUAGES}
-          activeLanguage={activeLanguage}
-          titlePlaceholder={t('events.eventTitlePlaceholder')}
-          descriptionPlaceholder={t('events.descriptionPlaceholder')}
-        />
+        {/* Description */}
+        <View className="mb-4">
+          <Body className="mb-1 font-nunito-bold text-sm text-gray-700">{t('events.descriptionPlaceholder', 'Description')}</Body>
+          <Controller
+            control={control}
+            name="description"
+            render={({field: {onChange, value}}) => (
+              <TextInput
+                value={value}
+                onChangeText={onChange}
+                placeholder={t('events.descriptionPlaceholder', 'Description')}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+                className="rounded-lg border border-gray-300 bg-white p-3 font-nunito"
+              />
+            )}
+          />
+        </View>
 
         {/* Images */}
         <ImageInput control={control} name="images" label={t('events.images')} />

@@ -31,8 +31,9 @@ export const MoodCheckInModal = ({visible, onClose, onMoodSelect}: MoodCheckInMo
     } else {
       // Fallback for standalone usage if any
       setTimeout(() => {
+        // @ts-ignore
         router.push({
-          pathname: '/(user)/(tabs)/home/services',
+          pathname: '/(user)/(tabs)/home',
           params: {categoryId: categoryId.toString(), focus: 'false'},
         });
       }, 100);

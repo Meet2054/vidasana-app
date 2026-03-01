@@ -45,27 +45,14 @@ export default function EventDetailsScreen() {
   };
 
   const {data: event, isLoading} = useQuery({
-    queryKey: ['event', id, i18n.language],
+    queryKey: ['event', id],
     queryFn: async () => {
-      // 1. Fetch Event with Translations and Tickets
-      const {data, error} = await supabase
-        .from('events')
-        .select('*, event_translations(*), event_ticket_types(*), categories(*)')
-        .eq('id', id)
-        .single();
+      const {data, error} = await supabase.from('events').select('*, event_ticket_types(*), categories(*)').eq('id', id).single();
 
       if (error) throw error;
 
-      // 2. Resolve Translation (Fallback Logic)
-      const translation =
-        data.event_translations.find((tr: any) => tr.lang_code === i18n.language) ||
-        data.event_translations.find((tr: any) => tr.lang_code === 'en') ||
-        data.event_translations[0];
-
       return {
         ...data,
-        title: translation?.title || 'Untitled Event',
-        description: translation?.description || 'No description available',
         lat: (data as any).location?.coordinates ? (data as any).location.coordinates[1] : null,
         lng: (data as any).location?.coordinates ? (data as any).location.coordinates[0] : null,
       };
@@ -205,7 +192,7 @@ export default function EventDetailsScreen() {
                   zoomEnabled={false}
                   pitchEnabled={false}
                   rotateEnabled={false}>
-                  <Marker coordinate={{latitude: event.lat, longitude: event.lng}} title={event.title} />
+                  <Marker coordinate={{latitude: event.lat, longitude: event.lng}} title={event.title || undefined} />
                 </MapView>
               </View>
             </View>

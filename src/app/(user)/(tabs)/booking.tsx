@@ -52,7 +52,7 @@ export default function BookingsScreen() {
           services (
             location,
             images,
-            service_translations (title, description)
+            title, description
           )
         `
         )
@@ -70,7 +70,7 @@ export default function BookingsScreen() {
             start_at,
             location, 
             images,
-            event_translations (title, description)
+            title, description
           )
         `
         )
@@ -85,8 +85,8 @@ export default function BookingsScreen() {
           created_at: b.created_at,
           status: b.status,
           appointed: b.appointed,
-          title: b.services?.service_translations?.[0]?.title || 'Service',
-          description: b.services?.service_translations?.[0]?.description,
+          title: b.services?.title || 'Service',
+          description: b.services?.description,
           location: b.services?.location,
           images: b.services?.images || [],
           type: 'service' as const,
@@ -97,8 +97,8 @@ export default function BookingsScreen() {
           created_at: b.created_at,
           status: b.status || 'booked',
           event_start_at: b.events?.start_at,
-          title: b.events?.event_translations?.[0]?.title || 'Event',
-          description: b.events?.event_translations?.[0]?.description,
+          title: b.events?.title || 'Event',
+          description: b.events?.description,
           location: b.events?.location,
           images: b.events?.images || [],
           type: 'event' as const,

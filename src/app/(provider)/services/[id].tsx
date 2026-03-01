@@ -8,11 +8,10 @@ import {supabase} from '@/utils/supabase';
 import Toast from 'react-native-toast-message';
 import {useTranslation} from 'react-i18next';
 import MapView, {Marker, PROVIDER_GOOGLE} from 'react-native-maps';
-import {ImageCarousel} from '@/components';
-import {H2, H3, Body, Caption} from '@/components';
+import {H2, H3, Body, Caption, ImageCarousel} from '@/components';
 
 export default function ServiceDetailsScreen() {
-  const {t} = useTranslation();
+  const {t, i18n} = useTranslation();
   const {id} = useLocalSearchParams<{id: string}>();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -27,9 +26,10 @@ export default function ServiceDetailsScreen() {
   } = useQuery({
     queryKey: ['service', id],
     queryFn: async () => {
-      const {data, error} = await supabase.from('services').select(`*, categories (name)`).eq('id', id).single();
+      const {data, error} = await supabase.from('services').select(`*, categories(name)`).eq('id', id).single();
+
       if (error) throw error;
-      return data as any;
+      return data;
     },
     enabled: !!id,
   });

@@ -1,69 +1,25 @@
-import Constants from 'expo-constants';
 import {supabase} from '@/utils';
-import {useAppStore} from '@/store';
 import {Ionicons} from '@expo/vector-icons';
 import {Link, useRouter} from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import React, {useEffect, useState} from 'react';
+import React, {useState} from 'react';
 import {H2, Body, Caption, Loader} from '@/components';
 import {View, TouchableOpacity, ScrollView, Alert, RefreshControl} from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import {useStripeStatus} from '@/hooks';
 
 export default function PaymentSetupScreen() {
   const router = useRouter();
-  const {user} = useAppStore((s) => s.session!);
   const [loading, setLoading] = useState(false);
-  const [checkingStatus, setCheckingStatus] = useState(true);
-  const [status, setStatus] = useState<{
-    isConnected: boolean;
-    details_submitted?: boolean;
-    charges_enabled?: boolean;
-    payouts_enabled?: boolean;
-  } | null>(null);
 
-  useEffect(() => {
-    checkStatus();
-  }, []);
+  const {data: status, isLoading: initialLoad, refetch: checkStatus, isRefetching} = useStripeStatus();
 
-  const invokeFunction = (action: string) => supabase.functions.invoke('stripe-connect', {body: {action}});
-
-  const checkStatus = async () => {
-    console.log('PaymentSetup: checkStatus started');
-    try {
-      setCheckingStatus(true);
-      if (!user) {
-        console.log('PaymentSetup: No user found');
-        return setCheckingStatus(false);
-      }
-
-      console.log('PaymentSetup: Invoking stripe-connect (check_status)');
-      const {data, error} = await invokeFunction('check_status');
-      console.log('PaymentSetup: Invoke result', {data, error});
-
-      if (error) throw error;
-      setStatus(data);
-
-      // AUTOMATIC TRANSITION: Onboarding -> Pending (Under Review)
-      if (data?.details_submitted) {
-        const {data: profile} = await supabase.from('profile').select('status').eq('id', user.id).single();
-        // checking logic: if not active, move to pending
-        if (profile?.status !== 'active' && profile?.status !== 'pending') {
-          await supabase.from('profile').update({status: 'pending'}).eq('id', user.id);
-        }
-      }
-    } catch (e: any) {
-      console.log('PaymentSetup: Error checking status:', e);
-      // Fallback: just check if stripe ID exists in DB if function fails (e.g. not deployed yet)
-      const {data: provider} = await supabase.from('provider').select('stripe').eq('id', user.id).single();
-      setStatus({isConnected: !!provider?.stripe, details_submitted: false}); // Safest fallback
-    } finally {
-      console.log('PaymentSetup: checkStatus finished');
-      setCheckingStatus(false);
-    }
-  };
+  const checkingStatus = initialLoad || isRefetching;
 
   const handleConnect = async () => {
     try {
       setLoading(true);
+      const invokeFunction = (action: string) => supabase.functions.invoke('stripe-connect', {body: {action}});
       const {data, error} = await invokeFunction('create_account_link');
 
       if (error) throw error;
@@ -99,22 +55,16 @@ export default function PaymentSetupScreen() {
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      setLoading(true);
-      await supabase.auth.signOut();
-      router.replace('/auth');
-    } catch (error: any) {
-      Alert.alert('Error', error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <View className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-white">
+      <View className="flex-row items-center border-b border-gray-100 px-4 py-3">
+        <TouchableOpacity onPress={() => router.back()} className="mr-3 p-2">
+          <Ionicons name="arrow-back" size={24} color="black" />
+        </TouchableOpacity>
+        <H2 className="text-gray-900">Payouts</H2>
+      </View>
       <ScrollView
-        className="flex-1 p-6"
+        className="p-6"
         contentContainerStyle={{flexGrow: 1, justifyContent: 'center'}}
         refreshControl={
           <RefreshControl
@@ -126,7 +76,7 @@ export default function PaymentSetupScreen() {
             progressBackgroundColor="#ffffff"
           />
         }>
-        <View className="mb-8 mt-4 items-center">
+        <View className="mb-8 items-center">
           <View className="mb-4 h-20 w-20 items-center justify-center rounded-full bg-primary/10">
             <Ionicons name="card-outline" size={40} color="#00594f" />
           </View>
@@ -134,8 +84,8 @@ export default function PaymentSetupScreen() {
           <Body className="mt-2 text-center text-gray-500">Connect your bank account to receive payouts from your bookings instantly.</Body>
 
           <TouchableOpacity
-            onPress={checkStatus}
             disabled={checkingStatus}
+            onPress={() => checkStatus()}
             className={`mt-6 flex-row items-center justify-center rounded-full px-5 py-2 ${checkingStatus ? 'bg-gray-100' : 'bg-primary/10'}`}>
             <Ionicons name="refresh" size={18} color={checkingStatus ? '#9ca3af' : '#00594f'} />
             <Body className={`ml-2 font-nunito-bold ${checkingStatus ? 'text-gray-400' : 'text-primary'}`}>
@@ -153,9 +103,6 @@ export default function PaymentSetupScreen() {
                 <Ionicons name="arrow-forward" size={20} color="white" />
               </TouchableOpacity>
               <Caption className="mt-4 text-center text-gray-400">You will be redirected to completely secure onboarding hosted by Stripe.</Caption>
-              <TouchableOpacity onPress={handleLogout} className="mt-4 p-2">
-                <Body className="font-nunito-bold text-gray-500 underline">Back to Login</Body>
-              </TouchableOpacity>
             </View>
           )}
 
@@ -171,10 +118,6 @@ export default function PaymentSetupScreen() {
               </View>
               <TouchableOpacity onPress={handleConnect} className="w-full flex-row items-center justify-center rounded-xl bg-primary py-3 shadow-sm">
                 <Body className="font-nunito-bold text-white">Complete Setup</Body>
-              </TouchableOpacity>
-
-              <TouchableOpacity onPress={handleLogout} className="mt-4 p-2">
-                <Body className="font-nunito-bold text-gray-500 underline">Back to Login</Body>
               </TouchableOpacity>
             </View>
           )}
@@ -204,15 +147,8 @@ export default function PaymentSetupScreen() {
             </View>
           )}
         </View>
-
-        {/* App Version */}
-        <View className="mb-4 mt-8 items-center">
-          <Caption className="text-gray-400">
-            Version {Constants.expoConfig?.version || Constants.manifest2?.extra?.expoClient?.version || '1.0.0'}
-          </Caption>
-        </View>
       </ScrollView>
       <Loader visible={loading} />
-    </View>
+    </SafeAreaView>
   );
 }

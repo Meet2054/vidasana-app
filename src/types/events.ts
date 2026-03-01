@@ -17,12 +17,8 @@ export type TicketType = {
 };
 
 export type EventFormValues = {
-  translations: {
-    [key in LanguageCode]: {
-      title: string;
-      description: string;
-    };
-  };
+  title: string;
+  description: string;
   category: number | null;
   start_at: Date | null;
   end_at: Date | null;

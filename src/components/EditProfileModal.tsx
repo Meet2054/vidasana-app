@@ -1,5 +1,5 @@
 import React, {useState, useEffect} from 'react';
-import {Modal, KeyboardAvoidingView, Platform, Pressable, View, TextInput, TouchableOpacity, ActivityIndicator, Alert} from 'react-native';
+import {Modal, KeyboardAvoidingView, Platform, Pressable, View, TextInput, TouchableOpacity, ActivityIndicator, Alert, Image} from 'react-native';
 import Animated, {SlideInDown, SlideOutDown} from 'react-native-reanimated';
 import {H3, Body} from './Typography';
 import {PhoneInputField} from './PhoneInputField';
@@ -7,12 +7,14 @@ import {useTranslation} from 'react-i18next';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {supabase} from '@/utils';
 import {useAppStore} from '@/store';
+import {Ionicons} from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 
 interface EditProfileModalProps {
   visible: boolean;
   onClose: () => void;
   onSuccess: (updatedData: {fullName: string; phone: string}) => void;
-  initialData: {fullName: string; phone: string; email: string};
+  initialData: {fullName: string; phone: string; email: string; image?: string | null};
 }
 
 export const EditProfileModal: React.FC<EditProfileModalProps> = ({visible, onClose, onSuccess, initialData}) => {
@@ -23,14 +25,29 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({visible, onCl
   const [editedInfo, setEditedInfo] = useState({fullName: '', phone: ''});
   const [isSaving, setIsSaving] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState<any>(null);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
 
   useEffect(() => {
     if (visible) {
       setEditedInfo({phone: initialData.phone, fullName: initialData.fullName});
       // Reset selected country if needed or try to infer from phone (complex without parsing lib)
       setSelectedCountry(null);
+      setProfileImage(initialData.image || null);
     }
   }, [visible, initialData]);
+
+  const handleImagePick = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      setProfileImage(result.assets[0].uri);
+    }
+  };
 
   const handleSave = async () => {
     if (!currentUser?.id) return Alert.alert('Error', "We couldn't verify your account. Please sign in again.");
@@ -45,12 +62,37 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({visible, onCl
       const fullPhoneNumber = selectedCountry ? `${selectedCountry?.callingCode} ${trimmedPhone}` : trimmedPhone;
       const countryCode = selectedCountry?.cca2 || '';
 
-      const {data, error} = await supabase
-        .from('profile')
-        .update({name: trimmedName, phone: fullPhoneNumber || null, country_code: countryCode})
-        .eq('id', currentUser.id)
-        .select('name, phone')
-        .single();
+      let uploadedImagePath: string | null | undefined = undefined;
+
+      // 0. Upload Image if changed
+      if (profileImage && profileImage !== initialData.image) {
+        const fileExt = profileImage.split('.').pop()?.split('?')[0] || 'jpeg';
+        const fileName = `${currentUser.id}.${fileExt}`;
+
+        // Create form data for upload
+        const formData = new FormData();
+        formData.append('file', {
+          uri: Platform.OS === 'ios' ? profileImage.replace('file://', '') : profileImage,
+          name: fileName,
+          type: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
+        } as any);
+
+        const {error: uploadError} = await supabase.storage.from('profile').upload(fileName, formData as any, {
+          upsert: true,
+        });
+
+        if (uploadError) {
+          throw uploadError;
+        }
+        uploadedImagePath = fileName;
+      }
+
+      const profileUpdates: any = {name: trimmedName, phone: fullPhoneNumber || null, country_code: countryCode};
+      if (uploadedImagePath !== undefined) {
+        profileUpdates.image = uploadedImagePath;
+      }
+
+      const {data, error} = await supabase.from('profile').update(profileUpdates).eq('id', currentUser.id).select('name, phone, image').single();
 
       if (error) throw error;
 
@@ -76,6 +118,24 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({visible, onCl
           <View className="w-full">
             <H3 className="mb-2 text-xl font-bold text-[#1F1F1F]">{t('profile.editTitle')}</H3>
             <Body className="mb-6 text-sm text-[#6B6B6B]">{t('profile.description')}</Body>
+
+            {/* Avatar Section */}
+            <View className="mb-6 items-center">
+              <TouchableOpacity onPress={handleImagePick}>
+                <View className="relative">
+                  {profileImage ? (
+                    <Image source={{uri: profileImage}} className="h-[100px] w-[100px] rounded-full" />
+                  ) : (
+                    <View className="h-[100px] w-[100px] items-center justify-center rounded-full bg-gray-200">
+                      <Ionicons name="person" size={40} color="#666" />
+                    </View>
+                  )}
+                  <View className="absolute bottom-0 right-0 h-[30px] w-[30px] items-center justify-center rounded-full border-2 border-white bg-primary">
+                    <Ionicons name="camera" size={14} color="#FFF" />
+                  </View>
+                </View>
+              </TouchableOpacity>
+            </View>
 
             {/* Full Name */}
             <Body className="mb-1 font-nunito text-sm font-medium text-gray-700">{t('profile.fullName')}</Body>

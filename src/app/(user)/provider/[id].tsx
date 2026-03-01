@@ -36,21 +36,15 @@ export default function ProviderProfileScreen() {
     queryFn: async () => {
       const {data, error} = await supabase
         .from('services')
-        .select(`id, price, images, capacity, week_day, service_translations (*)`)
+        .select(`id, title, description, price, images, capacity, week_day`)
         .eq('provider', id)
         .eq('active', true);
 
       if (error) throw error;
 
       return data.map((s: any) => {
-        const tr =
-          s?.service_translations?.find((t: any) => t.lang_code === i18n.language) ||
-          s?.service_translations?.find((t: any) => t.lang_code === 'en') ||
-          s?.service_translations?.[0];
         return {
           ...s,
-          title: tr?.title || 'Untitled',
-          description: tr?.description || '',
         };
       });
     },
@@ -65,8 +59,7 @@ export default function ProviderProfileScreen() {
         .from('events')
         .select(
           `
-            id, start_at, end_at, images, category,
-            event_translations (*)
+            id, title, description, start_at, end_at, images, category
         `
         )
         .eq('provider', id);
@@ -74,14 +67,8 @@ export default function ProviderProfileScreen() {
       if (error) throw error;
 
       return data.map((e) => {
-        const tr =
-          e.event_translations.find((t: any) => t.lang_code === i18n.language) ||
-          e.event_translations.find((t: any) => t.lang_code === 'en') ||
-          e.event_translations[0];
         return {
           ...e,
-          title: tr?.title || 'Untitled Event',
-          description: tr?.description || '',
         };
       });
     },

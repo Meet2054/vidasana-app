@@ -353,12 +353,14 @@ export type Database = {
           category: number
           created_at: string
           delete: boolean
+          description: string | null
           end_at: string
           id: string
           images: string[] | null
           location: unknown
           provider: string
           start_at: string
+          title: string | null
           updated_at: string
         }
         Insert: {
@@ -367,12 +369,14 @@ export type Database = {
           category: number
           created_at?: string
           delete?: boolean
+          description?: string | null
           end_at: string
           id?: string
           images?: string[] | null
           location?: unknown
           provider?: string
           start_at: string
+          title?: string | null
           updated_at?: string
         }
         Update: {
@@ -381,12 +385,14 @@ export type Database = {
           category?: number
           created_at?: string
           delete?: boolean
+          description?: string | null
           end_at?: string
           id?: string
           images?: string[] | null
           location?: unknown
           provider?: string
           start_at?: string
+          title?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -405,27 +411,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      events_tickets: {
-        Row: {
-          created_at: string
-          id: number
-          message: string | null
-          user: string
-        }
-        Insert: {
-          created_at?: string
-          id?: number
-          message?: string | null
-          user?: string
-        }
-        Update: {
-          created_at?: string
-          id?: number
-          message?: string | null
-          user?: string
-        }
-        Relationships: []
       }
       payments: {
         Row: {
@@ -505,23 +490,50 @@ export type Database = {
         Row: {
           country: string
           created_at: string
+          description: string | null
           document: string | null
           id: string
+          id_photo: string | null
+          id_type: string | null
+          language: string | null
+          location: unknown
+          pricing: string | null
+          service_type: string | null
+          session_duration: string | null
           stripe: string | null
+          type: Database["public"]["Enums"]["provider_type"] | null
         }
         Insert: {
           country: string
           created_at?: string
+          description?: string | null
           document?: string | null
           id?: string
+          id_photo?: string | null
+          id_type?: string | null
+          language?: string | null
+          location?: unknown
+          pricing?: string | null
+          service_type?: string | null
+          session_duration?: string | null
           stripe?: string | null
+          type?: Database["public"]["Enums"]["provider_type"] | null
         }
         Update: {
           country?: string
           created_at?: string
+          description?: string | null
           document?: string | null
           id?: string
+          id_photo?: string | null
+          id_type?: string | null
+          language?: string | null
+          location?: unknown
+          pricing?: string | null
+          service_type?: string | null
+          session_duration?: string | null
           stripe?: string | null
+          type?: Database["public"]["Enums"]["provider_type"] | null
         }
         Relationships: []
       }
@@ -615,6 +627,7 @@ export type Database = {
           capacity: number | null
           category: number
           created_at: string | null
+          description: string | null
           end_at: string
           id: string
           images: string[] | null
@@ -622,6 +635,7 @@ export type Database = {
           price: number | null
           provider: string
           start_at: string
+          title: string | null
           updated_at: string | null
           week_day: Database["public"]["Enums"]["week_day"][]
         }
@@ -631,6 +645,7 @@ export type Database = {
           capacity?: number | null
           category: number
           created_at?: string | null
+          description?: string | null
           end_at: string
           id?: string
           images?: string[] | null
@@ -638,6 +653,7 @@ export type Database = {
           price?: number | null
           provider?: string
           start_at: string
+          title?: string | null
           updated_at?: string | null
           week_day: Database["public"]["Enums"]["week_day"][]
         }
@@ -647,6 +663,7 @@ export type Database = {
           capacity?: number | null
           category?: number
           created_at?: string | null
+          description?: string | null
           end_at?: string
           id?: string
           images?: string[] | null
@@ -654,6 +671,7 @@ export type Database = {
           price?: number | null
           provider?: string
           start_at?: string
+          title?: string | null
           updated_at?: string | null
           week_day?: Database["public"]["Enums"]["week_day"][]
         }
@@ -833,6 +851,7 @@ export type Database = {
           capacity: number
           category: number
           created_at: string
+          description: string
           end_at: string
           id: string
           images: string[]
@@ -842,7 +861,7 @@ export type Database = {
           price: number
           provider: Json
           start_at: string
-          translations: Json
+          title: string
           week_day: Database["public"]["Enums"]["week_day"][]
         }[]
       }
@@ -984,6 +1003,7 @@ export type Database = {
         | "resolved_payout"
         | "dismissed"
       event_booking_status: "booked" | "completed" | "cancelled" | "disputed"
+      provider_type: "individual" | "company"
       role: "user" | "provider" | "admin"
       user_status: "active" | "onboarding" | "pending" | "delete" | "reject"
       week_day: "sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat"
@@ -1123,6 +1143,7 @@ export const Constants = {
         "dismissed",
       ],
       event_booking_status: ["booked", "completed", "cancelled", "disputed"],
+      provider_type: ["individual", "company"],
       role: ["user", "provider", "admin"],
       user_status: ["active", "onboarding", "pending", "delete", "reject"],
       week_day: ["sun", "mon", "tue", "wed", "thu", "fri", "sat"],

@@ -1,7 +1,7 @@
 import {ActivityIndicator, TouchableOpacity, View, Platform, Linking, Modal, TextInput, KeyboardAvoidingView, ScrollView} from 'react-native';
 import {Feather, Ionicons} from '@expo/vector-icons';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {supabase, formatTime} from '@/utils';
+import {supabase, formatTime, fetchPaymentSheetParams} from '@/utils';
 import {Link, useLocalSearchParams, useRouter} from 'expo-router';
 import {useState} from 'react';
 import {useQuery, useMutation, useQueryClient} from '@tanstack/react-query';
@@ -48,8 +48,7 @@ export default function UserServiceDetailsScreen() {
         return;
       }
 
-      // 1. Fetch Payment Intent & Keys (Production)
-      const {paymentIntent, ephemeralKey, customer} = await stripe.fetchPaymentSheetParams({serviceId: id});
+      const {paymentIntent, ephemeralKey, customer} = await fetchPaymentSheetParams({id, type: 'service'});
 
       // 2. Initialize Payment Sheet
       const {error: initError} = await initPaymentSheet({
@@ -204,12 +203,8 @@ export default function UserServiceDetailsScreen() {
     },
   });
 
-  const {title, description} = (() => {
-    const translations = service?.translations as any[];
-    const translation =
-      translations?.find((tr) => tr.lang_code === i18n.language) || translations?.find((tr) => tr.lang_code === 'en') || translations?.[0];
-    return {title: translation?.title, description: translation?.description};
-  })();
+  const title = (service as any)?.title || 'Untitled Service';
+  const description = (service as any)?.description || 'No description available';
 
   // Fetch User's Bookings for this Service
   const {data: userBookings} = useQuery({
@@ -226,7 +221,7 @@ export default function UserServiceDetailsScreen() {
     const isCompleted = b.status === 'completed';
     const appointedTime = dayjs(b.appointed);
     const isPast = appointedTime.add(1, 'hour').isBefore(dayjs());
-    return (isCompleted || (b.status === 'booked' && isPast)) && b.status !== 'cancelled';
+    return (isCompleted || (b.status === 'booked' && isPast)) && b.status !== 'cancel';
   });
 
   // Capacity Logic

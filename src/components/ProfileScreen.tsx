@@ -209,6 +209,16 @@ export const ProfileScreen = () => {
             <Body className="ml-3 flex-1 font-nunito-bold text-base text-primary">{t('settings.changePassword')}</Body>
             <Ionicons name="chevron-forward" size={24} color="#00594f" />
           </TouchableOpacity>
+
+          {(userInfo.role === 'provider' || currentUser?.user_metadata?.role === 'provider') && (
+            <TouchableOpacity
+              className="mb-2 flex-row items-center rounded-xl bg-gray-50 px-4 py-3"
+              onPress={() => router.push('/(provider)/payment-setup')}>
+              <Ionicons name="card-outline" size={24} color="#00594f" />
+              <Body className="ml-3 flex-1 font-nunito-bold text-base text-primary">Payouts & Stripe</Body>
+              <Ionicons name="chevron-forward" size={24} color="#00594f" />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Preferences */}

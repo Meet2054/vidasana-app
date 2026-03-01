@@ -31,7 +31,7 @@ export default function ProviderBookingsScreen() {
       const {data: serviceBookings, error: serviceError} = await supabase
         .from('services_booking')
         .select(
-          `id, created_at, status, price, appointed, service:services!inner (id, images, provider, translations:service_translations(title, lang_code)), user:profile (id, name, image, phone)`
+          `id, created_at, status, price, appointed, service:services!inner (id, images, provider, title), user:profile (id, name, image, phone)`
         )
         .eq('service.provider', user.id);
 
@@ -41,7 +41,7 @@ export default function ProviderBookingsScreen() {
       const {data: eventBookings, error: eventError} = await supabase
         .from('event_booking')
         .select(
-          `id, created_at, status, total_price, event:events!inner (id, start_at, images, provider, translations:event_translations(title, lang_code)), user:profile (id, name, image, phone)`
+          `id, created_at, status, total_price, event:events!inner (id, start_at, images, provider, title), user:profile (id, name, image, phone)`
         )
         .eq('event.provider', user.id);
 
@@ -55,7 +55,7 @@ export default function ProviderBookingsScreen() {
         status: b.status,
         price: b.price,
         type: 'service',
-        title: getTranslation(b.service?.translations, i18n.language),
+        title: b.service?.title || 'Untitled',
         image: b.service?.images?.[0],
         user: b.user,
       }));
@@ -67,7 +67,7 @@ export default function ProviderBookingsScreen() {
         status: b.status || 'booked', // Default if null
         price: b.total_price,
         type: 'event',
-        title: getTranslation(b.event?.translations, i18n.language),
+        title: b.event?.title || 'Untitled',
         image: b.event?.images?.[0],
         user: b.user,
       }));
@@ -76,11 +76,6 @@ export default function ProviderBookingsScreen() {
     },
     enabled: !!user?.id,
   });
-
-  const getTranslation = (translations: any[], lang: string) => {
-    const tr = translations?.find((t) => t.lang_code === lang) || translations?.find((t) => t.lang_code === 'en') || translations?.[0];
-    return tr?.title || 'Untitled';
-  };
 
   // Group bookings by day
   const sections = (() => {

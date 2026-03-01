@@ -8,13 +8,12 @@ import {Feather} from '@expo/vector-icons';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import Toast from 'react-native-toast-message';
 import {supabase, uploadFile} from '@/utils';
-import {Loader} from '@/components';
 import {useAppStore} from '@/store';
 import {Enums} from '@/types';
 import {useTranslation} from 'react-i18next';
-import {ServiceFormValues, LanguageCode, UnifiedImage} from '@/types/service';
-import {LANGUAGES, getDays} from '@/constants';
-import {H2, Body, Caption, LanguageTabs, TranslatableFields, ImageInput, LocationInput} from '@/components';
+import {ServiceFormValues, UnifiedImage} from '@/types/service';
+import {getDays} from '@/constants';
+import {H2, Body, Caption, Loader, ImageInput, LocationInput} from '@/components';
 
 // Types
 
@@ -26,9 +25,23 @@ export default function EditServiceScreen() {
   const {id} = useLocalSearchParams<{id: string}>();
   const queryClient = useQueryClient();
 
+  // Robust location parsing logic to handle PostGIS POINTS
+  const parseLocation = (loc: any) => {
+    if (!loc) return {lat: null, lng: null};
+    // PostGIS POINT('lng lat') string format
+    if (typeof loc === 'string' && loc.startsWith('POINT(')) {
+      const coords = loc.replace('POINT(', '').replace(')', '').split(' ');
+      return {lng: parseFloat(coords[0]), lat: parseFloat(coords[1])};
+    }
+    // GeoJSON format
+    if (loc.coordinates && Array.isArray(loc.coordinates)) {
+      return {lng: loc.coordinates[0], lat: loc.coordinates[1]};
+    }
+    return {lat: null, lng: null};
+  };
+
   const [isTimePickerVisible, setTimePickerVisible] = useState(false);
   const [activeTimeField, setActiveTimeField] = useState<'start_at' | 'end_at' | null>(null);
-  const [activeLanguage, setActiveLanguage] = useState<LanguageCode>('en');
 
   // Track initial images to calculate deletions
   const [initialImages, setInitialImages] = useState<UnifiedImage[]>([]);
@@ -42,11 +55,8 @@ export default function EditServiceScreen() {
     formState: {errors},
   } = useForm<ServiceFormValues>({
     defaultValues: {
-      translations: {
-        en: {title: '', description: ''},
-        es: {title: '', description: ''},
-        fr: {title: '', description: ''},
-      },
+      title: '',
+      description: '',
       category: null,
       price: '',
       capacity: '',
@@ -77,7 +87,7 @@ export default function EditServiceScreen() {
     queryKey: ['service', id],
     queryFn: async () => {
       if (!id) throw new Error('No ID provided');
-      const {data, error} = await supabase.from('services').select(`*, categories(*), service_translations(*)`).eq('id', id).single();
+      const {data, error} = await supabase.from('services').select(`*, categories(*)`).eq('id', id).single();
 
       if (error) throw error;
 
@@ -100,34 +110,23 @@ export default function EditServiceScreen() {
         return d;
       };
 
-      // Map translations
-      const translationsMap: any = {
-        en: {title: '', description: ''},
-        es: {title: '', description: ''},
-        fr: {title: '', description: ''},
-      };
+      console.log('🚀 ~ EditServiceScreen ~ data:', data);
 
-      if (data.service_translations && Array.isArray(data.service_translations)) {
-        data.service_translations.forEach((t: any) => {
-          if (translationsMap[t.lang_code]) {
-            translationsMap[t.lang_code] = {
-              title: t.title || '',
-              description: t.description || '',
-            };
-          }
-        });
-      }
+      // Parse location safely
+      const parsedLocation = parseLocation(data.location);
 
       reset({
-        translations: translationsMap,
+        title: data.title || '',
+        description: data.description || '',
         category: data.category,
         price: data.price?.toString() ?? '',
         capacity: data.capacity?.toString() ?? '',
         start_at: parseTime(data.start_at),
         end_at: parseTime(data.end_at),
-        week_day: (data.week_day as WeekDay[]) || [],
+        week_day: (data.week_day || []) as WeekDay[],
         images: loadedImages,
-        lng: (data.location as any)?.coordinates ? (data.location as any).coordinates[0] : null,
+        lat: parsedLocation.lat,
+        lng: parsedLocation.lng,
         address: data.address || '',
       });
 
@@ -163,7 +162,8 @@ export default function EditServiceScreen() {
       const {error: updateError} = await supabase
         .from('services')
         .update({
-          // title/description removed
+          title: data.title,
+          description: data.description,
           category: data.category!,
           price: parseFloat(data.price),
           capacity: parseInt(data.capacity),
@@ -177,18 +177,6 @@ export default function EditServiceScreen() {
         .eq('id', id as string);
 
       if (updateError) throw updateError;
-
-      // C. Upsert Translations
-      const translationUpserts = LANGUAGES.map((lang) => ({
-        service_id: id as string,
-        lang_code: lang.code,
-        title: data.translations[lang.code].title,
-        description: data.translations[lang.code].description,
-      }));
-
-      const {error: transError} = await supabase.from('service_translations').upsert(translationUpserts, {onConflict: 'service_id,lang_code'});
-
-      if (transError) throw transError;
 
       // D. Delete Removed Images from Bucket (Cleanup)
       // Find paths present in initialImages but NOT in finalImagePaths
@@ -208,13 +196,7 @@ export default function EditServiceScreen() {
     onError: (err: any) => Toast.show({type: 'error', text1: 'Update Failed', text2: err.message}),
   });
 
-  const onInvalid = (errors: FieldErrors<ServiceFormValues>) => {
-    if (errors.translations) {
-      for (const lang of LANGUAGES) {
-        if (errors.translations[lang.code]?.title || errors.translations[lang.code]?.description) return setActiveLanguage(lang.code);
-      }
-    }
-  };
+  const onInvalid = (errors: FieldErrors<ServiceFormValues>) => {};
 
   const handleConfirmTime = (date: Date) => {
     if (activeTimeField) setValue(activeTimeField, date, {shouldValidate: true});
@@ -246,19 +228,46 @@ export default function EditServiceScreen() {
       </View>
 
       <ScrollView className="flex-1 p-4" showsVerticalScrollIndicator={false}>
-        {/* Language Tabs */}
-        <LanguageTabs languages={LANGUAGES} activeLanguage={activeLanguage} onChange={setActiveLanguage} />
+        {/* Title */}
+        <View className="mb-4">
+          <Body className="mb-1 font-nunito-bold text-sm text-gray-700">{t('services.serviceTitlePlaceholder', 'Service Title')}</Body>
+          <Controller
+            control={control}
+            name="title"
+            rules={{required: 'Title is required'}}
+            render={({field: {onChange, value}, fieldState: {error}}) => (
+              <>
+                <TextInput
+                  value={value}
+                  onChangeText={onChange}
+                  placeholder={t('services.serviceTitlePlaceholder', 'Service Title')}
+                  className="rounded-lg border border-gray-300 bg-white p-3 font-nunito"
+                />
+                {error?.message && <Caption className="mt-1 text-red-500">{error.message}</Caption>}
+              </>
+            )}
+          />
+        </View>
 
-        {/* Multilingual Fields */}
-        <TranslatableFields
-          control={control}
-          errors={errors}
-          activeLanguage={activeLanguage}
-          languages={LANGUAGES}
-          t={t}
-          titlePlaceholder={t('services.serviceTitlePlaceholder')}
-          descriptionPlaceholder={t('events.descriptionPlaceholder')}
-        />
+        {/* Description */}
+        <View className="mb-4">
+          <Body className="mb-1 font-nunito-bold text-sm text-gray-700">{t('events.descriptionPlaceholder', 'Description')}</Body>
+          <Controller
+            control={control}
+            name="description"
+            render={({field: {onChange, value}}) => (
+              <TextInput
+                value={value}
+                onChangeText={onChange}
+                placeholder={t('events.descriptionPlaceholder', 'Description')}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+                className="rounded-lg border border-gray-300 bg-white p-3 font-nunito"
+              />
+            )}
+          />
+        </View>
 
         {/* Images */}
         <ImageInput control={control} name="images" label={t('events.images')} />

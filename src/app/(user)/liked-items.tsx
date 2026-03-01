@@ -33,8 +33,7 @@ export default function LikedItemsScreen() {
             id,
             created_at,
             service:services (
-              id, price, images, capacity, 
-              service_translations!service_translations_service_fkey (*)
+              id, title, description, price, images, capacity
             )
           `
           )
@@ -49,14 +48,8 @@ export default function LikedItemsScreen() {
           .filter((b) => b.service)
           .map((b) => {
             const s = b.service as any;
-            const tr =
-              s.service_translations.find((t: any) => t.lang_code === i18n.language) ||
-              s.service_translations.find((t: any) => t.lang_code === 'en') ||
-              s.service_translations[0];
             return {
               ...s,
-              title: tr?.title || 'Untitled',
-              description: tr?.description || '',
               bookmark_id: b.id,
             };
           });
@@ -64,9 +57,7 @@ export default function LikedItemsScreen() {
         // Fetch Event Bookmarks (Likes)
         const {data: bookmarks, error} = await supabase
           .from('event_bookmarks')
-          .select(
-            'id, created_at, event:events (id, start_at, end_at, images, category, delete, event_translations!event_translations_event_id_fkey (*))'
-          )
+          .select('id, created_at, event:events (id, title, description, start_at, end_at, images, category, delete)')
           .eq('user', user.id);
 
         if (error) throw error;
@@ -75,14 +66,8 @@ export default function LikedItemsScreen() {
           .filter((b) => b.event && !b.event.delete)
           .map((b) => {
             const e = b.event as any;
-            const tr =
-              e.event_translations.find((t: any) => t.lang_code === i18n.language) ||
-              e.event_translations.find((t: any) => t.lang_code === 'en') ||
-              e.event_translations[0];
             return {
               ...e,
-              title: tr?.title || 'Untitled Event',
-              description: tr?.description || '',
               bookmark_id: b.id,
             };
           });

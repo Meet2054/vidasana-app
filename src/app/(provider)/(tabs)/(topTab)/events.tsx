@@ -1,5 +1,5 @@
 import {Link} from 'expo-router';
-import {supabase} from '@/utils/supabase';
+import {supabase} from '@/utils';
 import {Feather} from '@expo/vector-icons';
 import {useQuery} from '@tanstack/react-query';
 import {ActivityIndicator, FlatList, Pressable, RefreshControl, View} from 'react-native';
@@ -22,25 +22,14 @@ export default function EventsScreen() {
 
       const {data, error} = await supabase
         .from('events')
-        .select('*, event_translations(*)')
+        .select('*')
         .eq('provider', user.id)
         .eq('delete', false)
         .order('created_at', {ascending: false});
 
       if (error) throw error;
 
-      return data.map((event) => {
-        const translation =
-          event.event_translations.find((t: any) => t.lang_code === i18n.language) ||
-          event.event_translations.find((t: any) => t.lang_code === 'en') ||
-          event.event_translations[0];
-
-        return {
-          ...event,
-          title: translation?.title || 'Untitled Event',
-          description: translation?.description || 'No description available',
-        };
-      });
+      return data;
     },
   });
 

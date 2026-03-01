@@ -19,26 +19,11 @@ export default function ServicesScreen() {
   } = useQuery({
     queryKey: ['services', i18n.language],
     queryFn: async () => {
-      const {data, error} = await supabase
-        .from('services')
-        .select('*, service_translations(*)')
-        .eq('provider', user.id)
-        .order('created_at', {ascending: false});
+      const {data, error} = await supabase.from('services').select('*').eq('provider', user.id).order('created_at', {ascending: false});
 
       if (error) throw error;
 
-      return data.map((service) => {
-        const translation =
-          service.service_translations.find((t: any) => t.lang_code === i18n.language) ||
-          service.service_translations.find((t: any) => t.lang_code === 'en') ||
-          service.service_translations[0];
-
-        return {
-          ...service,
-          title: translation?.title || 'Untitled Service',
-          description: translation?.description || 'No description available',
-        };
-      });
+      return data;
     },
   });
 

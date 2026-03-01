@@ -121,9 +121,9 @@ export default function HomeScreen() {
         const serviceIds = rpcData.map((s: any) => s.id);
         const {data: bookmarks} = await supabase.from('services_bookmark').select('service').eq('user', user.id).in('service', serviceIds);
         const bookmarkedSet = new Set(bookmarks?.map((b) => b.service));
-        return rpcData.map((s: any) => ({...s, is_bookmarked: bookmarkedSet.has(s.id)})) as Service[];
+        return rpcData.map((s: any) => ({...(s as any), is_bookmarked: bookmarkedSet.has(s.id)})) as any[];
       }
-      return rpcData as Service[];
+      return rpcData as unknown as any[];
     },
     getNextPageParam: (lastPage, allPages) => (lastPage.length === 10 ? allPages.length * 10 : undefined),
   });
@@ -162,22 +162,6 @@ export default function HomeScreen() {
         page_limit: LIMIT,
       });
 
-      // Local type definition to match the updated SQL function
-      type RpcEvent = {
-        id: string;
-        title: string;
-        description: string;
-        images: string[] | null;
-        start_at: string;
-        dist_meters?: number;
-        price?: number;
-        avg_rating?: number;
-        provider?: {
-          name: string;
-          image?: string;
-        };
-      };
-
       if (error) {
         console.error('Search Events Error:', error);
         throw error;
@@ -188,10 +172,10 @@ export default function HomeScreen() {
         const eventIds = rpcData.map((s: any) => s.id);
         const {data: bookmarks} = await supabase.from('event_bookmarks').select('event').eq('user', user.id).in('event', eventIds);
         const bookmarkedSet = new Set(bookmarks?.map((b) => b.event));
-        return rpcData.map((s: any) => ({...s, is_bookmarked: bookmarkedSet.has(s.id)})) as unknown as RpcEvent[];
+        return rpcData.map((s: any) => ({...(s as any), is_bookmarked: bookmarkedSet.has(s.id)})) as any[];
       }
 
-      return rpcData as unknown as RpcEvent[];
+      return rpcData as unknown as any[];
     },
     getNextPageParam: (lastPage, allPages) => (lastPage.length === 10 ? allPages.length * 10 : undefined),
   });
@@ -291,7 +275,7 @@ export default function HomeScreen() {
     onSettled: () => queryClient.invalidateQueries({queryKey: eventsQueryKey}),
   });
 
-  const renderServiceItem = ({item}: {item: Service}) => (
+  const renderServiceItem = ({item}: {item: any}) => (
     <View className="px-4">
       <ServiceCard
         id={item.id}
@@ -324,7 +308,7 @@ export default function HomeScreen() {
     };
   };
 
-  const renderEventItem = ({item}: {item: Event}) => (
+  const renderEventItem = ({item}: {item: any}) => (
     <View className="px-4">
       <EventCard
         id={item.id}

@@ -11,9 +11,8 @@ import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import React, {useEffect, useState} from 'react';
 import Toast from 'react-native-toast-message';
 import {useTranslation} from 'react-i18next';
-import {EventFormValues, EventUnifiedImage, LanguageCode} from '@/types/events';
-import {H2, Body, Caption, LanguageTabs, TranslatableFields, ImageInput, LocationInput} from '@/components';
-import {LANGUAGES} from '@/constants';
+import {EventFormValues, EventUnifiedImage} from '@/types/events';
+import {H2, Body, Caption, ImageInput, LocationInput} from '@/components';
 
 type Category = Tables<'categories'>;
 
@@ -23,7 +22,19 @@ export default function EditEventScreen() {
   const {back} = useRouter();
   const {t} = useTranslation();
   const queryClient = useQueryClient();
-  const [activeLanguage, setActiveLanguage] = useState<LanguageCode>('en');
+
+  // Robust location parsing logic to handle PostGIS POINTS
+  const parseLocation = (loc: any) => {
+    if (!loc) return {lat: null, lng: null};
+    if (typeof loc === 'string' && loc.startsWith('POINT(')) {
+      const coords = loc.replace('POINT(', '').replace(')', '').split(' ');
+      return {lng: parseFloat(coords[0]), lat: parseFloat(coords[1])};
+    }
+    if (loc.coordinates && Array.isArray(loc.coordinates)) {
+      return {lng: loc.coordinates[0], lat: loc.coordinates[1]};
+    }
+    return {lat: null, lng: null};
+  };
 
   const [isTimePickerVisible, setTimePickerVisible] = useState(false);
   const [activeTimeField, setActiveTimeField] = useState<'start_at' | 'end_at' | 'book_till' | null>(null);
@@ -38,11 +49,8 @@ export default function EditEventScreen() {
     formState: {errors, isSubmitting},
   } = useForm<EventFormValues>({
     defaultValues: {
-      translations: {
-        en: {title: '', description: ''},
-        es: {title: '', description: ''},
-        fr: {title: '', description: ''},
-      },
+      title: '',
+      description: '',
       category: null,
       start_at: null,
       end_at: null,
@@ -83,7 +91,6 @@ export default function EditEventScreen() {
         .select(
           `
           *,
-          event_translations(*),
           event_ticket_types(*)
         `
         )
@@ -101,18 +108,6 @@ export default function EditEventScreen() {
   // Populate Form
   useEffect(() => {
     if (eventData) {
-      const translations: any = {
-        en: {title: '', description: ''},
-        es: {title: '', description: ''},
-        fr: {title: '', description: ''},
-      };
-
-      eventData.event_translations.forEach((tr: any) => {
-        if (translations[tr.lang_code]) {
-          translations[tr.lang_code] = {title: tr.title, description: tr.description};
-        }
-      });
-
       const images: EventUnifiedImage[] = (eventData.images || []).map((path: string) => ({
         id: path,
         type: 'existing',
@@ -126,16 +121,19 @@ export default function EditEventScreen() {
         capacity: ticket.capacity.toString(),
       }));
 
+      const parsedLocation = parseLocation(eventData.location);
+
       reset({
-        translations,
+        title: eventData.title || '',
+        description: eventData.description || '',
         category: eventData.category,
         start_at: new Date(eventData.start_at),
         end_at: new Date(eventData.end_at),
         book_till: eventData.book_till ? new Date(eventData.book_till) : null,
         images,
-        ticket_types: tickets,
-        lat: (eventData as any).location?.coordinates ? (eventData as any).location.coordinates[1] : null,
-        lng: (eventData as any).location?.coordinates ? (eventData as any).location.coordinates[0] : null,
+        ticket_types: tickets.length > 0 ? tickets : [{name: 'General', price: '', capacity: ''}],
+        lat: parsedLocation.lat,
+        lng: parsedLocation.lng,
         address: eventData.address || '',
       });
     }
@@ -166,6 +164,8 @@ export default function EditEventScreen() {
       const {error: updateError} = await supabase
         .from('events')
         .update({
+          title: data.title,
+          description: data.description,
           category: data.category!,
           start_at: data.start_at!.toISOString(),
           end_at: data.end_at!.toISOString(),
@@ -177,23 +177,6 @@ export default function EditEventScreen() {
         .eq('id', id);
 
       if (updateError) throw updateError;
-
-      // 4. Upsert Translations
-      const translationUpserts = LANGUAGES.map((lang) => ({
-        event_id: id,
-        lang_code: lang.code,
-        title: data.translations[lang.code].title,
-        description: data.translations[lang.code].description,
-      }));
-
-      // We need to handle conflict. The constraint on event_translations is (event_id, lang_code).
-      // supabase.upsert() with onConflict should work if unique constraint exists.
-      // Schema view showed: Relationships but didn't explicitly show unique constraints.
-      // Assuming typical setup: upsert works if primary key or unique match.
-      // If no unique constraint on (event_id, lang_code), we might get duplicates?
-      // Usually there is one. If validation fails we'll know.
-      const {error: transError} = await supabase.from('event_translations').upsert(translationUpserts, {onConflict: 'event_id, lang_code'});
-      if (transError) throw transError;
 
       // 5. Upsert Tickets
       // For tickets, we handle edits and new ones.
@@ -228,15 +211,6 @@ export default function EditEventScreen() {
   });
 
   const onInvalid = (errors: any) => {
-    if (errors.translations) {
-      for (const lang of LANGUAGES) {
-        if (errors.translations[lang.code]?.title || errors.translations[lang.code]?.description) {
-          setActiveLanguage(lang.code);
-          Toast.show({type: 'error', text1: 'Missing Info', text2: `Check ${lang.label} details.`});
-          return;
-        }
-      }
-    }
     Toast.show({type: 'error', text1: 'Validation Error', text2: 'Please check the form.'});
   };
 
@@ -300,19 +274,46 @@ export default function EditEventScreen() {
           <H2 className="text-gray-900">{t('events.editTitle')}</H2>
         </View>
 
-        {/* Language Tabs */}
-        <LanguageTabs languages={LANGUAGES} activeLanguage={activeLanguage} onChange={setActiveLanguage} />
+        {/* Title */}
+        <View className="mb-4">
+          <Body className="mb-1 font-nunito-bold text-sm text-gray-700">{t('events.eventTitlePlaceholder', 'Event Title')}</Body>
+          <Controller
+            control={control}
+            name="title"
+            rules={{required: 'Title is required'}}
+            render={({field: {onChange, value}, fieldState: {error}}) => (
+              <>
+                <TextInput
+                  value={value}
+                  onChangeText={onChange}
+                  placeholder={t('events.eventTitlePlaceholder', 'Event Title')}
+                  className="rounded-lg border border-gray-300 bg-white p-3 font-nunito"
+                />
+                {error?.message && <Caption className="mt-1 text-red-500">{error.message}</Caption>}
+              </>
+            )}
+          />
+        </View>
 
-        {/* Multilingual Fields */}
-        <TranslatableFields
-          control={control}
-          errors={errors}
-          activeLanguage={activeLanguage}
-          languages={LANGUAGES}
-          t={t}
-          titlePlaceholder={t('events.eventTitlePlaceholder')}
-          descriptionPlaceholder={t('events.descriptionPlaceholder')}
-        />
+        {/* Description */}
+        <View className="mb-4">
+          <Body className="mb-1 font-nunito-bold text-sm text-gray-700">{t('events.descriptionPlaceholder', 'Description')}</Body>
+          <Controller
+            control={control}
+            name="description"
+            render={({field: {onChange, value}}) => (
+              <TextInput
+                value={value}
+                onChangeText={onChange}
+                placeholder={t('events.descriptionPlaceholder', 'Description')}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+                className="rounded-lg border border-gray-300 bg-white p-3 font-nunito"
+              />
+            )}
+          />
+        </View>
 
         {/* Images */}
         <ImageInput control={control} name="images" label={t('events.images')} />

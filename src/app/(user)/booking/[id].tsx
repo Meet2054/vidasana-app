@@ -255,7 +255,7 @@ export default function BookingScreen() {
       <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false}>
         {/* Service Info Summary */}
         <View className="mb-6 rounded-2xl bg-gray-50 p-4">
-          <Body className="font-nunito-bold text-lg text-gray-900">{(service as any)?.translations?.[0]?.title || 'Service'}</Body>
+          <Body className="font-nunito-bold text-lg text-gray-900">{(service as any)?.title || 'Service'}</Body>
           <Body className="text-gray-500">{(service as any)?.provider?.name || 'Provider'}</Body>
         </View>
 
