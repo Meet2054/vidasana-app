@@ -39,6 +39,7 @@ export default function ProviderSettingsScreen() {
     language: '',
     location: '',
     terms_agreed: false,
+    countryCode: '',
   });
   const [isFetchingProfile, setIsFetchingProfile] = useState(true);
   const [isLanguagePickerVisible, setIsLanguagePickerVisible] = useState(false);
@@ -62,6 +63,7 @@ export default function ProviderSettingsScreen() {
         language: '',
         location: '',
         terms_agreed: false,
+        countryCode: '',
       });
       setProfileImage(null);
       setIsFetchingProfile(false);
@@ -86,7 +88,7 @@ export default function ProviderSettingsScreen() {
       setIsFetchingProfile(true);
       const {data: profileData, error: profileError} = await supabase
         .from('profile')
-        .select('name, phone, role, image')
+        .select('name, phone, role, image, country_code')
         .eq('id', currentUser.id)
         .single();
 
@@ -128,6 +130,7 @@ export default function ProviderSettingsScreen() {
           language: providerData?.language ?? '',
           location: typeof providerData?.location === 'string' ? providerData.location : '',
           terms_agreed: providerData?.terms_agreed ?? false,
+          countryCode: profileData.country_code ?? '',
         });
 
         if (profileData.image) {

@@ -451,7 +451,7 @@ export type Database = {
           description: string | null
           document: string | null
           id: string
-          id_photo: string | null
+          id_photo: string[] | null
           id_type: string | null
           language: string | null
           location: unknown
@@ -467,7 +467,7 @@ export type Database = {
           description?: string | null
           document?: string | null
           id?: string
-          id_photo?: string | null
+          id_photo?: string[] | null
           id_type?: string | null
           language?: string | null
           location?: unknown
@@ -483,7 +483,7 @@ export type Database = {
           description?: string | null
           document?: string | null
           id?: string
-          id_photo?: string | null
+          id_photo?: string[] | null
           id_type?: string | null
           language?: string | null
           location?: unknown
@@ -727,47 +727,8 @@ export type Database = {
           user_name: string
         }[]
       }
-      get_service_by_id: {
-        Args: { target_id: string }
-        Returns: {
-          active: boolean
-          booked_count: number
-          capacity: number
-          category: number
-          created_at: string
-          description: string
-          end_at: string
-          id: string
-          images: string[]
-          is_bookmarked: boolean
-          lat: number
-          lng: number
-          price: number
-          provider: Json
-          start_at: string
-          title: string
-          week_day: Database["public"]["Enums"]["week_day"][]
-        }[]
-      }
-      get_service_rating_summary: {
-        Args: { target_service_id: string }
-        Returns: {
-          avg_rating: number
-          count: number
-        }[]
-      }
-      get_service_reviews: {
-        Args: { target_service_id: string }
-        Returns: {
-          comment: string
-          created_at: string
-          id: string
-          rating: number
-          user_id: string
-          user_image: string
-          user_name: string
-        }[]
-      }
+      get_liked_items: { Args: { p_type: string }; Returns: Json }
+      get_service_by_id: { Args: { target_id: string }; Returns: Json }
       get_services_booking_report: {
         Args: never
         Returns: {
@@ -803,7 +764,7 @@ export type Database = {
           date_from?: string
           date_to?: string
           day_filter?: Database["public"]["Enums"]["week_day"][]
-          p_type?: string
+          p_type: string
           page_limit?: number
           page_offset?: number
           radius_meters?: number
@@ -818,17 +779,25 @@ export type Database = {
           book_till: string
           category_id: number
           category_name: string
+          created_at: string
           description: string
           dist_meters: number
           end_at: string
           id: string
           images: string[]
           is_bookmarked: boolean
-          location: unknown
+          lat: number
+          lng: number
+          max_price: number
+          min_price: number
           price: number
           provider_id: string
+          provider_image: string
+          provider_name: string
+          provider_role: string
           start_at: string
           title: string
+          type: string
           week_day: Database["public"]["Enums"]["week_day"][]
         }[]
       }
@@ -890,7 +859,13 @@ export type Database = {
       event_booking_status: "booked" | "completed" | "cancelled" | "disputed"
       provider_type: "individual" | "company"
       role: "user" | "provider" | "admin"
-      user_status: "active" | "onboarding" | "pending" | "delete" | "reject"
+      user_status:
+        | "active"
+        | "onboarding"
+        | "pending"
+        | "delete"
+        | "reject"
+        | "suspended"
       week_day: "sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat"
     }
     CompositeTypes: {
@@ -1030,7 +1005,14 @@ export const Constants = {
       event_booking_status: ["booked", "completed", "cancelled", "disputed"],
       provider_type: ["individual", "company"],
       role: ["user", "provider", "admin"],
-      user_status: ["active", "onboarding", "pending", "delete", "reject"],
+      user_status: [
+        "active",
+        "onboarding",
+        "pending",
+        "delete",
+        "reject",
+        "suspended",
+      ],
       week_day: ["sun", "mon", "tue", "wed", "thu", "fri", "sat"],
     },
   },

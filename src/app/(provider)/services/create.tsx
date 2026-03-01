@@ -5,10 +5,11 @@ import {useAppStore} from '@/store';
 import {useForm, Controller, type FieldErrors} from 'react-hook-form';
 import {useQuery, useMutation, useQueryClient} from '@tanstack/react-query';
 import {useRouter} from 'expo-router';
-import {View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert} from 'react-native';
+import {View, TouchableOpacity, TextInput, ActivityIndicator, Alert} from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import React, {useState} from 'react';
 import Toast from 'react-native-toast-message';
+import {KeyboardAwareScrollView} from 'react-native-keyboard-controller';
 import {ServiceFormValues, WeekDay} from '@/types/service';
 import {getDays} from '@/constants';
 import {useTranslation} from 'react-i18next';
@@ -158,7 +159,7 @@ export default function CreateServiceScreen() {
     <SafeAreaView className="flex-1 bg-white">
       <DateTimePickerModal mode="time" onConfirm={handleConfirmTime} isVisible={!!isTimePickerVisible} onCancel={() => setTimePickerVisible(false)} />
 
-      <ScrollView className="flex-1 p-4" showsVerticalScrollIndicator={false}>
+      <KeyboardAwareScrollView className="flex-1 p-4" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" bottomOffset={62}>
         <View className="mb-6 flex-row items-center">
           <TouchableOpacity onPress={() => router.back()} className="mr-4 rounded-full bg-gray-100 p-2">
             <Ionicons name="arrow-back" size={24} color="black" />
@@ -284,13 +285,13 @@ export default function CreateServiceScreen() {
               control={control}
               rules={{required: 'Start time required'}}
               render={({field: {value}, fieldState: {error}}) => (
-                <View className="flex-1">
+                <View>
                   <TouchableOpacity
                     onPress={() => {
                       setActiveTimeField('start_at');
                       setTimePickerVisible(true);
                     }}
-                    className="flex-row items-center justify-between rounded-lg border border-gray-300 bg-white p-3">
+                    className="h-12 flex-row items-center justify-between rounded-lg border border-gray-300 bg-white px-3">
                     <Body className={`font-nunito ${value ? 'text-gray-900' : 'text-gray-400'}`}>
                       {value?.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}) || t('events.selectStart')}
                     </Body>
@@ -309,13 +310,13 @@ export default function CreateServiceScreen() {
               name="end_at"
               rules={{required: 'End time required'}}
               render={({field: {value}, fieldState: {error}}) => (
-                <View className="flex-1">
+                <View>
                   <TouchableOpacity
                     onPress={() => {
                       setActiveTimeField('end_at');
                       setTimePickerVisible(true);
                     }}
-                    className="flex-row items-center justify-between rounded-lg border border-gray-300 bg-white p-3">
+                    className="h-12 flex-row items-center justify-between rounded-lg border border-gray-300 bg-white px-3">
                     <Body className={`font-nunito ${value ? 'text-gray-900' : 'text-gray-400'}`}>
                       {value?.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}) || t('events.selectEnd')}
                     </Body>
@@ -368,7 +369,7 @@ export default function CreateServiceScreen() {
             <Body className="font-nunito-bold text-lg text-white">{t('services.createButton')}</Body>
           )}
         </TouchableOpacity>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

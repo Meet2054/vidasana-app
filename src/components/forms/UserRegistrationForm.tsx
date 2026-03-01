@@ -6,11 +6,10 @@ import {useForm, Controller} from 'react-hook-form';
 import Toast from 'react-native-toast-message';
 import {Link, useRouter} from 'expo-router';
 import Animated, {FadeInUp} from 'react-native-reanimated';
-
-import {Button, PasswordStrengthBar, PhoneInputField, Body, Caption, GoogleSignInButton, LegalModal} from '@/components';
 import {supabase} from '@/utils';
 import {useAppStore} from '@/store';
 import {TERMS_AND_CONDITIONS} from '@/constants';
+import {Button, PasswordStrengthBar, PhoneInputField, Body, Caption, GoogleSignInButton, LegalModal} from '@/components';
 
 type FormData = {email: string; phone: string; fullName: string; password: string};
 

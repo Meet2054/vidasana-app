@@ -203,6 +203,8 @@ export default function HomeScreen() {
         title={item.title}
         description={item.description}
         price={item.price}
+        minPrice={item.min_price}
+        maxPrice={item.max_price}
         images={item.images || []}
         startAt={item.start_at}
         distance={item.dist_meters}

@@ -1,4 +1,4 @@
-export * from './EditProfileModal';
+export * from './modals/EditProfileModal';
 export * from './modals/ProviderEditProfileModal';
 export * from './Loader';
 export * from './Avatar';

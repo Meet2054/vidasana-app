@@ -50,65 +50,75 @@ export default function UserServiceDetailsScreen() {
 
       const {paymentIntent, ephemeralKey, customer} = await fetchPaymentSheetParams({id, type: 'service'});
 
-      // 2. Initialize Payment Sheet
-      const {error: initError} = await initPaymentSheet({
-        customerId: customer,
-        merchantDisplayName: 'VidaSana Wellness',
-        paymentIntentClientSecret: paymentIntent,
-        customerEphemeralKeySecret: ephemeralKey,
-        defaultBillingDetails: {email: user.email, name: user.user_metadata?.full_name || 'User'},
-      });
-
-      if (initError) {
-        console.error(initError);
-        Toast.show({type: 'error', text1: 'Payment Init Failed', text2: initError.message});
-        setBookingLoading(false);
-        return;
+      // Only require paymentIntent if price is greater than 0
+      if (service.price > 0 && !paymentIntent) {
+        throw new Error('Failed to fetch payment params');
       }
 
-      // 3. Present Payment Sheet
-      const {error: presentError} = await presentPaymentSheet();
-
-      if (presentError) {
-        if (presentError.code === 'Canceled') {
-          // User canceled, no error toast needed usually, or maybe a info one
-          console.log('Payment canceled');
-        } else {
-          Toast.show({type: 'error', text1: 'Payment Failed', text2: presentError.message});
-        }
-      } else {
-        // Success
-
-        // 4a. Create Payment Record (to get a valid UUID)
-        const {data: paymentData, error: paymentError} = await supabase
-          .from('payments')
-          .insert({currency: 'usd', status: 'succeeded', amount: service?.price || 0})
-          .select()
-          .single();
-
-        if (paymentError) {
-          console.error('Payment record creation failed:', paymentError);
-          return Toast.show({type: 'error', text1: 'Database Error', text2: 'Could not record payment'});
-        }
-
-        // 4b. Create Booking Record linked to Payment
-        const {error: bookingError} = await supabase.from('services_booking').insert({
-          service: id,
-          status: 'booked',
-          price: service?.price || 0,
-          payment_id: paymentData.id,
-          appointed: date.toISOString(),
+      // 2. Initialize and Present Payment Sheet (Only if not free)
+      if (service.price > 0) {
+        const {error: initError} = await initPaymentSheet({
+          customerId: customer,
+          merchantDisplayName: 'VidaSana Wellness',
+          paymentIntentClientSecret: paymentIntent!,
+          customerEphemeralKeySecret: ephemeralKey,
+          defaultBillingDetails: {email: user.email, name: user.user_metadata?.full_name || 'User'},
         });
 
-        if (bookingError) {
-          console.error('Booking creation failed:', bookingError);
-          console.log('Stripe Payment Intent:', paymentIntent); // fallback log
-          Toast.show({text2: 'Please contact support with ID: ' + paymentIntent});
-        } else {
-          Toast.show({type: 'success', text1: 'Booking Confirmed!', text2: 'Payment successful'});
-          // Navigate to bookings or success screen
-          // router.replace('/(user)/bookings'); // Example navigation
+        if (initError) {
+          console.error(initError);
+          Toast.show({type: 'error', text1: 'Payment Init Failed', text2: initError.message});
+          setBookingLoading(false);
+          return;
         }
+
+        const {error: presentError} = await presentPaymentSheet();
+        if (presentError) {
+          if (presentError.code === 'Canceled') {
+            console.log('Payment canceled');
+          } else {
+            Toast.show({type: 'error', text1: 'Payment Failed', text2: presentError.message});
+          }
+          setBookingLoading(false);
+          return;
+        }
+      }
+
+      // 3. Success - Create Database Records
+      // 4a. Create Payment Record (Required for booking, even if $0)
+      const {data: paymentData, error: paymentError} = await supabase
+        .from('payments')
+        .insert({
+          currency: 'usd',
+          status: 'succeeded',
+          amount: service?.price || 0,
+          user: user.id, // Explicitly pass user ID
+        })
+        .select()
+        .single();
+
+      if (paymentError) {
+        console.error('Payment record creation failed:', paymentError);
+        return Toast.show({type: 'error', text1: 'Database Error', text2: 'Could not record payment'});
+      }
+
+      // 4b. Create Booking Record linked to Payment
+      const {error: bookingError} = await supabase.from('services_booking').insert({
+        service: id,
+        status: 'booked',
+        price: service?.price || 0,
+        payment_id: paymentData.id,
+        appointed: date.toISOString(),
+      });
+
+      if (bookingError) {
+        console.error('Booking creation failed:', bookingError);
+        console.log('Stripe Payment Intent:', paymentIntent); // fallback log
+        Toast.show({text2: 'Please contact support with ID: ' + paymentIntent});
+      } else {
+        Toast.show({type: 'success', text1: 'Booking Confirmed!', text2: 'Payment successful'});
+        // Navigate to bookings or success screen
+        // router.replace('/(user)/bookings'); // Example navigation
       }
     } catch (error: any) {
       console.error(error);
@@ -176,8 +186,7 @@ export default function UserServiceDetailsScreen() {
     onSuccess: () => {
       setReviewModalVisible(false);
       Toast.show({type: 'success', text1: 'Review submitted'});
-      queryClient.invalidateQueries({queryKey: ['service_reviews', id]});
-      queryClient.invalidateQueries({queryKey: ['service_rating_summary', id]});
+      queryClient.invalidateQueries({queryKey: ['service', id]});
     },
     onError: (err: any) => {
       console.log('🚀 ~ UserServiceDetailsScreen ~ err:', err);
@@ -300,10 +309,10 @@ export default function UserServiceDetailsScreen() {
             <H2 className="mb-3 text-[18px] text-gray-900">Hosted by</H2>
             <Link href={`/(user)/provider/${(service.provider as any).id}`}>
               <View className="flex-row items-center gap-3">
-                <Avatar size={44} name={(service.provider as any)?.name} uri={(service.provider as any)?.avatar_url} />
+                <Avatar size={44} name={(service.provider as any)?.name} uri={(service.provider as any)?.image} />
                 <View>
                   <H3 className="font-nunito-bold text-[16px] capitalize text-gray-900">{(service.provider as any)?.name}</H3>
-                  <Body className="text-gray-500">View profile {'->'}</Body>
+                  <Body className="text-primary">View profile</Body>
                 </View>
               </View>
             </Link>
@@ -343,7 +352,7 @@ export default function UserServiceDetailsScreen() {
               </View>
               <View className="flex-1 justify-center">
                 <Subtitle className="font-nunito-bold  tracking-widest text-gray-500">LOCATION</Subtitle>
-                <H3 className="text-[15px] leading-5 text-gray-900">N/A</H3>
+                <H3 className="text-[15px] leading-5 text-gray-900">{service.address}</H3>
                 <TouchableOpacity onPress={() => openAddressOnMap(service.lat || 0, service.lng || 0, title || '')}>
                   <Body className="font-nunito-bold text-[13px] text-primary">View on map</Body>
                 </TouchableOpacity>

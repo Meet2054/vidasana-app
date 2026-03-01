@@ -9,7 +9,7 @@ import {useStripe} from '@stripe/stripe-react-native';
 import {useLocalSearchParams, useRouter} from 'expo-router';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 import {View, ScrollView, TouchableOpacity, ActivityIndicator, SafeAreaView} from 'react-native';
-import {H3, Body, Loader} from '@/components';
+import {H3, Body, Loader, Caption} from '@/components';
 
 dayjs.extend(customParseFormat);
 
@@ -30,7 +30,7 @@ export default function BookingScreen() {
     queryFn: async () => {
       const {data, error} = await supabase.rpc('get_service_by_id', {target_id: id});
       if (error) throw error;
-      return data?.[0];
+      return (data as any) ?? null;
     },
     enabled: !!id,
   });
@@ -257,6 +257,7 @@ export default function BookingScreen() {
         <View className="mb-6 rounded-2xl bg-gray-50 p-4">
           <Body className="font-nunito-bold text-lg text-gray-900">{(service as any)?.title || 'Service'}</Body>
           <Body className="text-gray-500">{(service as any)?.provider?.name || 'Provider'}</Body>
+          {(service as any)?.address && <Caption className="mt-1 text-gray-400">{(service as any).address}</Caption>}
         </View>
 
         {/* Custom Full Month Calendar */}

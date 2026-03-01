@@ -13,7 +13,7 @@ import {useAppStore} from '@/store';
 import Constants from 'expo-constants';
 import {H2, H3, Body, Caption} from './Typography';
 import {LanguagePicker} from './LanguagePicker';
-import {EditProfileModal} from './EditProfileModal';
+import {EditProfileModal} from './modals/EditProfileModal';
 
 const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
 
@@ -28,11 +28,12 @@ export const ProfileScreen = () => {
 
   const [isEditing, setIsEditing] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
-  const [userInfo, setUserInfo] = useState<{fullName: string; email: string; phone: string; role: string}>({
+  const [userInfo, setUserInfo] = useState<{fullName: string; email: string; phone: string; role: string; country_code: string}>({
     fullName: '',
     email: '',
     phone: '',
     role: '',
+    country_code: '',
   });
   const [isFetchingProfile, setIsFetchingProfile] = useState(true);
   const [isLanguagePickerVisible, setIsLanguagePickerVisible] = useState(false);
@@ -42,7 +43,7 @@ export const ProfileScreen = () => {
 
   useEffect(() => {
     if (!currentUser) {
-      setUserInfo({fullName: '', email: '', phone: '', role: ''});
+      setUserInfo({fullName: '', email: '', phone: '', role: '', country_code: ''});
       setProfileImage(null);
       setIsFetchingProfile(false);
       return;
@@ -64,7 +65,7 @@ export const ProfileScreen = () => {
 
     try {
       setIsFetchingProfile(true);
-      const {data, error} = await supabase.from('profile').select('name, phone, role, image').eq('id', currentUser.id).single();
+      const {data, error} = await supabase.from('profile').select('name, phone, role, image, country_code').eq('id', currentUser.id).single();
 
       if (error) {
         console.error('Error fetching profile:', error.message);
@@ -77,6 +78,7 @@ export const ProfileScreen = () => {
           email: currentUser.email ?? '',
           phone: data.phone ?? '',
           role: String(data.role ?? currentUser.user_metadata?.role ?? ''),
+          country_code: data.country_code ?? '',
         });
 
         if (data.image) {

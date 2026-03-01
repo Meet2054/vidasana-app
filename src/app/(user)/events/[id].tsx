@@ -79,40 +79,41 @@ export default function UserEventDetailsScreen() {
         ticketId: selectedTicket.id,
       });
 
-      if (!paymentIntent) throw new Error('Failed to fetch payment params');
-
-      // 2. Initialize Payment Sheet
-      const {error: initError} = await initPaymentSheet({
-        merchantDisplayName: 'VidaSana Wellness',
-        customerId: customer,
-        customerEphemeralKeySecret: ephemeralKey,
-        paymentIntentClientSecret: paymentIntent,
-        defaultBillingDetails: {
-          name: user.user_metadata?.full_name,
-          email: user.email,
-        },
-      });
-
-      if (initError) throw initError;
-
-      // 3. Present Payment Sheet
-      const {error: paymentError} = await presentPaymentSheet();
-
-      if (paymentError) {
-        if (paymentError.code === 'Canceled') {
-          // User canceled, do nothing
-          return;
-        }
-        throw paymentError;
+      // Only require paymentIntent if price is greater than 0
+      if (selectedTicket.price > 0 && !paymentIntent) {
+        throw new Error('Failed to fetch payment params');
       }
 
-      // 4. Create Payment Record (Required for Booking)
+      // 2. Initialize and Present Payment Sheet (Only if not free)
+      if (selectedTicket.price > 0) {
+        const {error: initError} = await initPaymentSheet({
+          merchantDisplayName: 'VidaSana Wellness',
+          customerId: customer,
+          customerEphemeralKeySecret: ephemeralKey,
+          paymentIntentClientSecret: paymentIntent!,
+          defaultBillingDetails: {
+            name: user.user_metadata?.full_name,
+            email: user.email,
+          },
+        });
+
+        if (initError) throw initError;
+
+        const {error: paymentError} = await presentPaymentSheet();
+        if (paymentError) {
+          if (paymentError.code === 'Canceled') return;
+          throw paymentError;
+        }
+      }
+
+      // 3. Create Payment Record (Required for Booking, even if $0)
       const {data: paymentData, error: paymentRecordError} = await supabase
         .from('payments')
         .insert({
           amount: selectedTicket.price * quantity,
           status: 'succeeded',
           currency: 'usd',
+          user: user.id, // Explicitly pass user ID
         })
         .select()
         .single();

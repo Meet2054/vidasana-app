@@ -1,7 +1,8 @@
 import React, {useState, useEffect} from 'react';
 import {Modal, KeyboardAvoidingView, Platform, View, TextInput, TouchableOpacity, ActivityIndicator, Alert, ScrollView, Image} from 'react-native';
 import Animated, {SlideInDown, SlideOutDown} from 'react-native-reanimated';
-import {H2, H3, Body} from '../Typography';
+import {H2, H3, Body, LegalModal} from '../index';
+import {PROVIDER_LEGAL_CONTENT, PROVIDER_TERMS_AGREEMENTS} from '@/constants';
 import {PhoneInputField} from '../PhoneInputField';
 import {LocationPickerModal} from './LocationPickerModal';
 import MapView, {Marker, PROVIDER_GOOGLE} from 'react-native-maps';
@@ -19,6 +20,7 @@ interface ProviderProfileData {
   email: string;
   phone: string;
   country: string;
+  countryCode?: string;
   providerType: string;
   description: string;
   service_type: string;
@@ -36,15 +38,6 @@ interface ProviderEditProfileModalProps {
   initialData: ProviderProfileData;
 }
 
-const TERMS_AGREEMENTS = [
-  {id: 'terms', label: 'I agree to the Provider Terms & Conditions'},
-  {id: 'contractor', label: 'I agree to the Independent Contractor Agreement'},
-  {id: 'privacy', label: 'I acknowledge the Global Data Privacy Policy'},
-  {id: 'dispute', label: 'I acknowledge the Provider Dispute Guarantee'},
-  {id: 'ethics', label: 'I acknowledge the Provider Standards, Ethics & Scope of Practice'},
-  {id: 'cancel', label: 'I acknowledge the Cancellation & Rescheduling Policy'},
-];
-
 const SERVICE_TYPES = ['Online', 'In Person', 'Hybrid'];
 
 export const ProviderEditProfileModal: React.FC<ProviderEditProfileModalProps> = ({visible, onClose, onSuccess, initialData}) => {
@@ -61,6 +54,17 @@ export const ProviderEditProfileModal: React.FC<ProviderEditProfileModalProps> =
   const [lng, setLng] = useState<number | null>(null);
   const [isLocationPickerVisible, setLocationPickerVisible] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
+
+  // Legal Modal states
+  const [legalVisible, setLegalVisible] = useState(false);
+  const [legalTitle, setLegalTitle] = useState('');
+  const [legalContent, setLegalContent] = useState('');
+
+  const openLegalModal = (id: string, title: string) => {
+    setLegalTitle(title);
+    setLegalContent((PROVIDER_LEGAL_CONTENT as any)[id] || 'Content coming soon...');
+    setLegalVisible(true);
+  };
 
   useEffect(() => {
     if (visible) {
@@ -144,8 +148,9 @@ export const ProviderEditProfileModal: React.FC<ProviderEditProfileModalProps> =
         ? `${supabase.storage.from('profile').getPublicUrl(uploadedImagePath).data.publicUrl}?t=${Date.now()}`
         : undefined;
 
-      // 1. Update Profile (Phone & Image)
-      const profileUpdates: any = {phone: fullPhoneNumber || null};
+      // 1. Update Profile (Phone & Image & Country Code)
+      const countryCode = selectedCountry?.cca2 || '';
+      const profileUpdates: any = {phone: fullPhoneNumber || null, country_code: countryCode || undefined};
       if (uploadedImagePath !== undefined) {
         profileUpdates.image = uploadedImagePath; // relative path in DB
       }
@@ -258,18 +263,24 @@ export const ProviderEditProfileModal: React.FC<ProviderEditProfileModalProps> =
               selectedCountry={selectedCountry}
               onChangeSelectedCountry={setSelectedCountry}
               onChangePhoneNumber={(text) => setEditedInfo((p) => ({...p, phone: text}))}
+              defaultCountry={initialData.countryCode || 'US'}
             />
           </View>
 
           {/* SECTION 2: Agree below Terms */}
           <View className="mb-8 rounded-2xl border border-gray-100 bg-gray-50 p-5">
             <H3 className="mb-4 text-lg font-bold text-[#1F1F1F]">Agree below Terms</H3>
-            {TERMS_AGREEMENTS.map((term) => (
+            {PROVIDER_TERMS_AGREEMENTS.map((term) => (
               <View key={term.id} className="mb-4 flex-row items-center gap-3">
                 <View className="h-6 w-6 items-center justify-center rounded border border-primary bg-primary">
                   <Ionicons name="checkmark" size={16} color="white" />
                 </View>
-                <Body className="flex-1 text-sm text-gray-700">{term.label}</Body>
+                <Body className="flex-1 text-sm text-gray-700">
+                  {term.prefix}{' '}
+                  <Body className="font-nunito-bold text-primary" onPress={() => openLegalModal(term.id, term.link)}>
+                    {term.link}
+                  </Body>
+                </Body>
               </View>
             ))}
           </View>
@@ -411,6 +422,8 @@ export const ProviderEditProfileModal: React.FC<ProviderEditProfileModalProps> =
           </View>
           <View style={{height: insets.bottom}} />
         </Animated.View>
+
+        <LegalModal visible={legalVisible} title={legalTitle} content={legalContent} onClose={() => setLegalVisible(false)} />
       </KeyboardAvoidingView>
     </Modal>
   );

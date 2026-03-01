@@ -1,16 +1,21 @@
 import {useAppStore} from '@/store';
-import React, {useEffect, useState} from 'react';
-import {Ionicons} from '@expo/vector-icons';
+import {Feather, Ionicons} from '@expo/vector-icons';
 import {Link, useRouter} from 'expo-router';
 import {useTranslation} from 'react-i18next';
 import {supabase, uploadFile} from '@/utils';
 import Toast from 'react-native-toast-message';
+import React, {useEffect, useState} from 'react';
+import {PROVIDER_LEGAL_CONTENT, PROVIDER_TERMS_AGREEMENTS} from '@/constants';
 import {useForm, Controller} from 'react-hook-form';
 import CountrySelect, {ICountry} from 'react-native-country-select';
 import Animated, {FadeInDown, FadeInUp} from 'react-native-reanimated';
 import {getDocumentAsync, DocumentPickerAsset} from 'expo-document-picker';
 import {Image, View, TextInput, TouchableOpacity, Pressable, Linking, Alert, Modal} from 'react-native';
-import {Display, H3, Button, PasswordStrengthBar, PhoneInputField, Body, Caption, GoogleSignInButton} from '@/components';
+import {Display, H3, Button, PasswordStrengthBar, PhoneInputField, Body, Caption, GoogleSignInButton, LegalModal} from '@/components';
+import MapView, {Marker, PROVIDER_GOOGLE} from 'react-native-maps';
+import {LocationPickerModal} from '../modals/LocationPickerModal';
+
+const SERVICE_TYPES = ['Online', 'In Person', 'Hybrid'];
 
 const ID_TYPES = [
   {label: 'Passport', value: 'passport'},
@@ -19,16 +24,19 @@ const ID_TYPES = [
   {label: 'SSN Proof', value: 'ssn'},
 ];
 
-const TERMS_AGREEMENTS = [
-  {id: 'terms', label: 'I agree to the Provider Terms & Conditions'},
-  {id: 'contractor', label: 'I agree to the Independent Contractor Agreement'},
-  {id: 'privacy', label: 'I acknowledge the Global Data Privacy Policy'},
-  {id: 'dispute', label: 'I acknowledge the Provider Dispute Guarantee'},
-  {id: 'ethics', label: 'I acknowledge the Provider Standards, Ethics & Scope of Practice'},
-  {id: 'cancel', label: 'I acknowledge the Cancellation & Rescheduling Policy'},
-];
-
-type FormData = {email: string; phone: string; fullName: string; password: string; providerCountry: string; idType: string};
+type FormData = {
+  email: string;
+  phone: string;
+  fullName: string;
+  password: string;
+  providerCountry: string;
+  idType: string;
+  description?: string;
+  service_type?: string;
+  pricing?: string;
+  session_duration?: string;
+  language?: string;
+};
 
 type Props = {googleAuth: string; googleEmail?: string; googleName?: string};
 
@@ -54,9 +62,31 @@ export const ProviderRegistrationForm: React.FC<Props> = ({googleAuth, googleEma
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [docError, setDocError] = useState<string>('');
 
-  const {control, formState, handleSubmit, setValue, trigger} = useForm<FormData>({
-    defaultValues: {fullName: '', email: '', phone: '', password: '', providerCountry: '', idType: ''},
+  const [showLegalModal, setShowLegalModal] = useState(false);
+  const [legalModalTitle, setLegalModalTitle] = useState('');
+  const [legalModalContent, setLegalModalContent] = useState('');
+
+  const [lat, setLat] = useState<number | null>(null);
+  const [lng, setLng] = useState<number | null>(null);
+  const [isLocationPickerVisible, setLocationPickerVisible] = useState(false);
+
+  const {control, formState, handleSubmit, setValue, trigger, watch} = useForm<FormData>({
+    defaultValues: {
+      fullName: '',
+      email: '',
+      phone: '',
+      password: '',
+      providerCountry: '',
+      idType: '',
+      description: '',
+      service_type: 'Online',
+      pricing: '',
+      session_duration: '',
+      language: '',
+    },
   });
+
+  const serviceType = watch('service_type');
 
   useEffect(() => {
     if (googleAuth === 'true') {
@@ -65,38 +95,27 @@ export const ProviderRegistrationForm: React.FC<Props> = ({googleAuth, googleEma
     }
   }, [googleAuth, googleEmail, googleName, setValue]);
 
-  const pickPdf = async () => {
+  const handleFilePick = async (
+    setFile: React.Dispatch<React.SetStateAction<DocumentPickerAsset | null>>,
+    setError: React.Dispatch<React.SetStateAction<string>>,
+    errorMessage?: string
+  ) => {
     try {
-      const result = await getDocumentAsync({copyToCacheDirectory: false, type: 'application/pdf', multiple: false});
+      const result = await getDocumentAsync({multiple: false});
       if (result.canceled) return;
-      setDocument(result.assets[0]);
-      setDocError('');
+      const file = result.assets[0];
+      if (file.size && file.size > 9 * 1024 * 1024) return Toast.show({type: 'error', text2: 'File size must be less than 9MB'});
+
+      setFile(file);
+      setError('');
     } catch (error: any) {
-      Toast.show({type: 'error', text2: error?.message || t('role.errorDoc')});
+      Toast.show({type: 'error', text2: error?.message || errorMessage || 'Error occurred'});
     }
   };
 
-  const pickIdPhotoFront = async () => {
-    try {
-      const result = await getDocumentAsync({copyToCacheDirectory: false, type: '*/*', multiple: false});
-      if (result.canceled) return;
-      setIdPhotoFront(result.assets[0]);
-      setIdPhotoFrontError('');
-    } catch (error: any) {
-      Toast.show({type: 'error', text2: error?.message || 'Error occurred'});
-    }
-  };
-
-  const pickIdPhotoBack = async () => {
-    try {
-      const result = await getDocumentAsync({copyToCacheDirectory: false, type: '*/*', multiple: false});
-      if (result.canceled) return;
-      setIdPhotoBack(result.assets[0]);
-      setIdPhotoBackError('');
-    } catch (error: any) {
-      Toast.show({type: 'error', text2: error?.message || 'Error occurred'});
-    }
-  };
+  const pickPdf = () => handleFilePick(setDocument, setDocError, t('role.errorDoc'));
+  const pickIdPhotoFront = () => handleFilePick(setIdPhotoFront, setIdPhotoFrontError);
+  const pickIdPhotoBack = () => handleFilePick(setIdPhotoBack, setIdPhotoBackError);
 
   const onSubmit = async (data: FormData) => {
     try {
@@ -109,19 +128,24 @@ export const ProviderRegistrationForm: React.FC<Props> = ({googleAuth, googleEma
         isValid = false;
       }
 
-      if (!idPhotoBack) {
-        setIdPhotoBackError(t('role.requiredIDBack'));
-        isValid = false;
-      }
-
       if (!isValid) return;
 
-      const allTermsAgreed = TERMS_AGREEMENTS.every((t) => providerTermsAgreed[t.id]);
-      if (!allTermsAgreed) {
-        return Toast.show({type: 'error', text1: 'Terms Required', text2: 'Please agree to all provider terms and conditions.'});
-      }
+      const allTermsAgreed = PROVIDER_TERMS_AGREEMENTS.every((t) => providerTermsAgreed[t.id]);
+      if (!allTermsAgreed) return Toast.show({type: 'error', text1: 'Terms Required', text2: 'Please agree to all provider terms and conditions.'});
 
-      const {email, phone, password, fullName, providerCountry: formCountry, idType: formIdType} = data;
+      const {
+        email,
+        phone,
+        password,
+        fullName,
+        providerCountry: formCountry,
+        idType: formIdType,
+        description,
+        service_type,
+        pricing,
+        session_duration,
+        language,
+      } = data;
       let userId = '';
 
       if (googleAuth === 'true') {
@@ -148,17 +172,26 @@ export const ProviderRegistrationForm: React.FC<Props> = ({googleAuth, googleEma
       const idPhotoFrontFile = await uploadFile(idPhotoFront!, 'provider_docs', `${userId}/id_photo_front_${idPhotoFront?.name}`);
       if (idPhotoFrontFile.error) throw idPhotoFrontFile.error;
 
-      // Upload ID Photo (Back)
-      const idPhotoBackFile = await uploadFile(idPhotoBack!, 'provider_docs', `${userId}/id_photo_back_${idPhotoBack?.name}`);
-      if (idPhotoBackFile.error) throw idPhotoBackFile.error;
+      // Upload ID Photo (Back) - Optional
+      let idPhotoBackFile: any = null;
+      if (idPhotoBack) {
+        idPhotoBackFile = await uploadFile(idPhotoBack, 'provider_docs', `${userId}/id_photo_back_${idPhotoBack.name}`);
+        if (idPhotoBackFile.error) throw idPhotoBackFile.error;
+      }
 
       const {error: providerError} = await supabase.from('provider').insert({
         id: userId,
         id_type: formIdType,
         type: providerType,
         document: file.data?.path,
-        id_photo: idPhotoFront?.uri, // TODO: Update this logic when Supabase schema supports back photo, right now we just put the front one as a placeholder
+        id_photo: [idPhotoFrontFile.data?.path, idPhotoBackFile?.data?.path].filter(Boolean) as string[],
         country: formCountry,
+        description,
+        service_type,
+        pricing,
+        session_duration,
+        language,
+        location: lat && lng ? `POINT(${lng} ${lat})` : null,
       });
       if (providerError) throw providerError;
 
@@ -192,6 +225,13 @@ export const ProviderRegistrationForm: React.FC<Props> = ({googleAuth, googleEma
       Alert.alert('Error', e?.message || JSON.stringify(e));
       Toast.show({type: 'error', text1: e?.message});
     }
+  };
+
+  const handleOpenLegalModal = (termId: string, label: string) => {
+    const content = (PROVIDER_LEGAL_CONTENT as any)[termId] || '(Content coming soon)';
+    setLegalModalTitle(label);
+    setLegalModalContent(content);
+    setShowLegalModal(true);
   };
 
   return (
@@ -536,22 +576,147 @@ export const ProviderRegistrationForm: React.FC<Props> = ({googleAuth, googleEma
         />
       )}
 
+      <View className="mb-8 rounded-2xl border border-gray-100 bg-gray-50 p-5">
+        <H3 className="mb-4 text-lg font-bold text-[#1F1F1F]">General Details</H3>
+
+        {/* Description */}
+        <Body className="mb-1 text-sm font-medium text-gray-700">Describe your service/event</Body>
+        <Controller
+          name="description"
+          control={control}
+          render={({field}) => (
+            <TextInput
+              value={field.value}
+              onChangeText={field.onChange}
+              placeholder="Tell clients about what you offer..."
+              multiline
+              numberOfLines={4}
+              className="mb-4 min-h-[100px] rounded-xl border border-gray-200 bg-white p-4 text-base text-gray-900"
+              style={{textAlignVertical: 'top', fontFamily: 'Nunito_400Regular'}}
+            />
+          )}
+        />
+
+        {/* Service Type */}
+        <Body className="mb-1 text-sm font-medium text-gray-700">Type of Service/Event</Body>
+        <View className="mb-4 flex-row gap-2">
+          {SERVICE_TYPES.map((type) => (
+            <TouchableOpacity
+              key={type}
+              onPress={() => setValue('service_type', type)}
+              className={`flex-1 items-center justify-center rounded-xl border py-3 ${
+                serviceType === type ? 'border-primary bg-primary/10' : 'border-gray-200 bg-white'
+              }`}>
+              <Body className={`font-nunito-bold text-sm ${serviceType === type ? 'text-primary' : 'text-gray-500'}`}>{type}</Body>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Pricing */}
+        <Body className="mb-1 text-sm font-medium text-gray-700">Pricing</Body>
+        <Controller
+          name="pricing"
+          control={control}
+          render={({field}) => (
+            <TextInput
+              value={field.value}
+              onChangeText={field.onChange}
+              placeholder="e.g. $50/hr, Varies"
+              style={{fontFamily: 'Nunito_400Regular'}}
+              className="mb-4 h-14 rounded-xl border border-gray-200 bg-white px-4 text-base text-gray-900"
+            />
+          )}
+        />
+
+        {/* Session Duration */}
+        <Body className="mb-1 text-sm font-medium text-gray-700">Session Duration</Body>
+        <Controller
+          name="session_duration"
+          control={control}
+          render={({field}) => (
+            <TextInput
+              value={field.value}
+              onChangeText={field.onChange}
+              placeholder="e.g. 60 minutes, 2 hours"
+              style={{fontFamily: 'Nunito_400Regular'}}
+              className="mb-4 h-14 rounded-xl border border-gray-200 bg-white px-4 text-base text-gray-900"
+            />
+          )}
+        />
+
+        {/* Language */}
+        <Body className="mb-1 text-sm font-medium text-gray-700">Language</Body>
+        <Controller
+          name="language"
+          control={control}
+          render={({field}) => (
+            <TextInput
+              value={field.value}
+              onChangeText={field.onChange}
+              placeholder="e.g. English, Spanish"
+              style={{fontFamily: 'Nunito_400Regular'}}
+              className="mb-4 h-14 rounded-xl border border-gray-200 bg-white px-4 text-base text-gray-900"
+            />
+          )}
+        />
+
+        {/* Location (Map UI) */}
+        <Body className="mb-2 text-sm font-medium text-gray-700">Location</Body>
+        <View className="mb-4">
+          {lat && lng ? (
+            <View className="mb-3 h-40 overflow-hidden rounded-xl bg-gray-100">
+              <MapView
+                style={{flex: 1}}
+                zoomEnabled={false}
+                pitchEnabled={false}
+                scrollEnabled={false}
+                rotateEnabled={false}
+                provider={PROVIDER_GOOGLE}
+                initialRegion={{latitude: lat, longitude: lng, latitudeDelta: 0.01, longitudeDelta: 0.01}}>
+                <Marker coordinate={{latitude: lat, longitude: lng}} />
+              </MapView>
+              <TouchableOpacity
+                className="absolute bottom-0 left-0 right-0 top-0 items-center justify-center bg-black/10"
+                onPress={() => setLocationPickerVisible(true)}>
+                <View className="items-center justify-center rounded-full bg-white/90 p-2 shadow-sm">
+                  <Feather name="edit-2" size={20} color="#00594f" />
+                </View>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
+          <TouchableOpacity
+            onPress={() => setLocationPickerVisible(true)}
+            className={`flex-row items-center justify-center rounded-xl border border-dashed p-4 ${
+              lat ? 'border-primary/30 bg-primary/5' : 'border-gray-300 bg-gray-50'
+            }`}>
+            <Feather name="map-pin" size={20} color={lat ? '#00594f' : '#9CA3AF'} />
+            <Body className={`ml-2 font-nunito-bold ${lat ? 'text-primary' : 'text-gray-500'}`}>
+              {lat ? t('map.changeLocation') : t('map.selectLocation')}
+            </Body>
+          </TouchableOpacity>
+        </View>
+      </View>
+
       {/* PROVIDER TERMS */}
       <View className="mb-8 mt-4 rounded-2xl border border-gray-100 bg-gray-50 p-5">
         <H3 className="mb-4 text-lg font-bold text-[#1F1F1F]">Agree below Terms</H3>
-        {TERMS_AGREEMENTS.map((term) => (
-          <TouchableOpacity
-            key={term.id}
-            className="mb-4 flex-row items-center gap-3"
-            onPress={() => setProviderTermsAgreed((prev) => ({...prev, [term.id]: !prev[term.id]}))}>
-            <View
+        {PROVIDER_TERMS_AGREEMENTS.map((term) => (
+          <View key={term.id} className="mb-4 flex-row items-center gap-3">
+            <TouchableOpacity
               className={`h-6 w-6 items-center justify-center rounded border ${
                 providerTermsAgreed[term.id] ? 'border-primary bg-primary' : 'border-gray-300 bg-white'
-              }`}>
+              }`}
+              onPress={() => setProviderTermsAgreed((prev) => ({...prev, [term.id]: !prev[term.id]}))}>
               {providerTermsAgreed[term.id] && <Ionicons name="checkmark" size={16} color="white" />}
-            </View>
-            <Body className="flex-1 text-sm text-gray-700">{term.label}</Body>
-          </TouchableOpacity>
+            </TouchableOpacity>
+            <Body className="flex-1 text-sm text-gray-700">
+              {term.prefix}{' '}
+              <Body onPress={() => handleOpenLegalModal(term.id, term.link)} className="font-nunito-bold text-secondary">
+                {term.link}
+              </Body>
+            </Body>
+          </View>
         ))}
       </View>
 
@@ -612,6 +777,18 @@ export const ProviderRegistrationForm: React.FC<Props> = ({googleAuth, googleEma
           </View>
         </View>
       </Modal>
+
+      <LegalModal visible={showLegalModal} content={legalModalContent} onClose={() => setShowLegalModal(false)} title={legalModalTitle} />
+      <LocationPickerModal
+        visible={isLocationPickerVisible}
+        onClose={() => setLocationPickerVisible(false)}
+        onConfirm={(location) => {
+          setLat(location.lat);
+          setLng(location.lng);
+          setLocationPickerVisible(false);
+        }}
+        initialLocation={lat && lng ? {lat, lng} : undefined}
+      />
     </Animated.View>
   );
 };

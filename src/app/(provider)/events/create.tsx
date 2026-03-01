@@ -9,6 +9,7 @@ import {View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert}
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import React, {useState} from 'react';
 import Toast from 'react-native-toast-message';
+import {KeyboardAwareScrollView} from 'react-native-keyboard-controller';
 import {useTranslation} from 'react-i18next';
 import {H2, Body, Caption, ImageInput, LocationInput} from '@/components';
 import {EventFormValues} from '@/types';
@@ -189,7 +190,7 @@ export default function CreateEventScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-white">
-      <ScrollView className="flex-1 p-4" showsVerticalScrollIndicator={false}>
+      <KeyboardAwareScrollView className="flex-1 p-4" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" bottomOffset={62}>
         <View className="mb-6 flex-row items-center">
           <TouchableOpacity onPress={() => back()} className="mr-4 rounded-full bg-gray-100 p-2">
             <Ionicons name="arrow-back" size={24} color="black" />
@@ -281,7 +282,9 @@ export default function CreateEventScreen() {
               rules={{required: 'Start time is required'}}
               render={({field: {onChange, value}, fieldState: {error}}) => (
                 <>
-                  <TouchableOpacity onPress={() => openDatePicker('start_at')} className="rounded-lg border border-gray-300 bg-white p-3">
+                  <TouchableOpacity
+                    onPress={() => openDatePicker('start_at')}
+                    className="min-h-[50px] justify-center rounded-lg border border-gray-300 bg-white p-3">
                     <Body className={`${value ? 'text-gray-900' : 'text-gray-400'}`}>
                       {value
                         ? `${value.toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit', hour12: true})} - ${value.getDate().toString().padStart(2, '0')}/${(value.getMonth() + 1).toString().padStart(2, '0')}/${value.getFullYear().toString().slice(-2)}`
@@ -301,7 +304,9 @@ export default function CreateEventScreen() {
               rules={{required: 'End time is required'}}
               render={({field: {onChange, value}, fieldState: {error}}) => (
                 <>
-                  <TouchableOpacity onPress={() => openDatePicker('end_at')} className="rounded-lg border border-gray-300 bg-white p-3">
+                  <TouchableOpacity
+                    onPress={() => openDatePicker('end_at')}
+                    className="min-h-[50px] justify-center rounded-lg border border-gray-300 bg-white p-3">
                     <Body className={`${value ? 'text-gray-900' : 'text-gray-400'}`}>
                       {value
                         ? `${value.toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit', hour12: true})} - ${value.getDate().toString().padStart(2, '0')}/${(value.getMonth() + 1).toString().padStart(2, '0')}/${value.getFullYear().toString().slice(-2)}`
@@ -323,7 +328,9 @@ export default function CreateEventScreen() {
             rules={{required: 'Booking deadline is required'}}
             render={({field: {onChange, value}, fieldState: {error}}) => (
               <>
-                <TouchableOpacity onPress={() => openDatePicker('book_till')} className="rounded-lg border border-gray-300 bg-white p-3">
+                <TouchableOpacity
+                  onPress={() => openDatePicker('book_till')}
+                  className="min-h-[50px] justify-center rounded-lg border border-gray-300 bg-white p-3">
                   <Body className={`${value ? 'text-gray-900' : 'text-gray-400'}`}>
                     {value ? value?.toLocaleDateString() : t('events.selectDeadline')}
                   </Body>
@@ -434,7 +441,7 @@ export default function CreateEventScreen() {
           className={`mb-10 items-center rounded-lg p-4 ${isPending ? 'bg-gray-400' : 'bg-primary'}`}>
           {isPending ? <ActivityIndicator color="white" /> : <Body className="font-nunito-bold text-lg text-white">{t('events.createButton')}</Body>}
         </TouchableOpacity>
-      </ScrollView>
+      </KeyboardAwareScrollView>
       <DateTimePickerModal
         mode={datePickerMode}
         onConfirm={handleConfirmDate}

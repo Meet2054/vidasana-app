@@ -38,11 +38,11 @@ export const HomeHeader = ({onMoodPress}: {onMoodPress?: () => void}) => {
         <TouchableOpacity className="h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white" onPress={onMoodPress}>
           <Feather name="smile" size={20} color="black" />
         </TouchableOpacity>
-        <TouchableOpacity
+        {/* <TouchableOpacity
           className="h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white"
           onPress={() => router.push('/(user)/notifications' as any)}>
           <Feather name="bell" size={20} color="black" />
-        </TouchableOpacity>
+        </TouchableOpacity> */}
         <TouchableOpacity
           className="h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white"
           onPress={() => router.push('/liked-items' as any)}>

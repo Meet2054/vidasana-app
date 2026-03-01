@@ -11,12 +11,14 @@ export default function ContactSupportScreen() {
   const {reason} = useLocalSearchParams();
 
   const isRejected = reason === 'reject';
-  const isDeleted = reason === 'delete';
+  const isSuspended = reason === 'suspended';
 
-  const title = isRejected ? 'Account Rejected' : isDeleted ? 'Account Suspended' : 'Contact Support';
+  const title = isRejected ? 'Account Rejected' : isSuspended ? 'Account Suspended' : 'Contact Support';
   const message = isRejected
     ? 'Your account application was not approved. Please contact support for more details.'
-    : 'Your account has been suspended. Please contact support to resolve this issue.';
+    : isSuspended
+      ? 'Your account has been suspended. Please contact support to resolve this issue.'
+      : 'Contact Support';
 
   return (
     <SafeAreaView className="flex-1 items-center justify-center bg-white p-6">

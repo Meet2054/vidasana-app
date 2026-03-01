@@ -24,60 +24,17 @@ export default function LikedItemsScreen() {
   } = useQuery({
     queryKey: ['liked-items', user?.id, activeTab],
     queryFn: async () => {
-      if (activeTab === 'services') {
-        // Fetch Service Bookmarks
-        const {data: bookmarks, error} = await supabase
-          .from('bookmark')
-          .select(
-            `
-            id,
-            created_at,
-            service:services!item_id (
-              id, title, description, price, images, capacity
-            )
-          `
-          )
-          .eq('user', user.id)
-          .eq('type', 'service');
+      const {data, error} = await supabase.rpc('get_liked_items', {p_type: activeTab});
 
-        if (error) {
-          console.error('Error fetching service bookmarks:', error);
-          throw error;
-        }
-
-        return bookmarks
-          .filter((b) => b.service)
-          .map((b) => {
-            const s = b.service as any;
-            return {
-              ...s,
-              bookmark_id: b.id,
-            };
-          });
-      } else {
-        // Fetch Event Bookmarks (Likes)
-        const {data: bookmarks, error} = await supabase
-          .from('bookmark')
-          .select('id, created_at, event:events!item_id (id, title, description, start_at, end_at, images, category, delete)')
-          .eq('user', user.id)
-          .eq('type', 'event');
-
-        if (error) throw error;
-
-        return bookmarks
-          .filter((b) => b.event && !b.event.delete)
-          .map((b) => {
-            const e = b.event as any;
-            return {
-              ...e,
-              bookmark_id: b.id,
-            };
-          });
+      if (error) {
+        console.error(`Error fetching liked ${activeTab}:`, error);
+        throw error;
       }
+
+      return data || [];
     },
     enabled: !!user?.id,
   });
-  console.log('🚀 ~ LikedItemsScreen ~ error:', error);
 
   const renderServiceItem = ({item}: {item: any}) => {
     const imageUrl = item.images && item.images.length > 0 ? supabase.storage.from('images').getPublicUrl(item.images[0]).data.publicUrl : null;
@@ -145,7 +102,15 @@ export default function LikedItemsScreen() {
             </View>
           </View>
           <View className="flex-row items-center justify-between">
-            <Caption className="font-nunito-bold text-primary">View Details</Caption>
+            <Body className="font-nunito-bold text-primary">
+              {item.min_price !== undefined && item.min_price !== null
+                ? item.min_price === 0 && item.max_price === 0
+                  ? 'Free'
+                  : item.min_price === item.max_price
+                    ? `$${item.min_price}`
+                    : `$${item.min_price} - $${item.max_price}`
+                : 'View Details'}
+            </Body>
             <Ionicons name="heart" size={20} color="#ef4444" />
           </View>
         </View>

@@ -1,8 +1,8 @@
 import React, {useState, useEffect} from 'react';
 import {Modal, KeyboardAvoidingView, Platform, Pressable, View, TextInput, TouchableOpacity, ActivityIndicator, Alert, Image} from 'react-native';
 import Animated, {SlideInDown, SlideOutDown} from 'react-native-reanimated';
-import {H3, Body} from './Typography';
-import {PhoneInputField} from './PhoneInputField';
+import {H3, Body} from '../Typography';
+import {PhoneInputField} from '../PhoneInputField';
 import {useTranslation} from 'react-i18next';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {supabase} from '@/utils';
@@ -14,7 +14,7 @@ interface EditProfileModalProps {
   visible: boolean;
   onClose: () => void;
   onSuccess: (updatedData: {fullName: string; phone: string}) => void;
-  initialData: {fullName: string; phone: string; email: string; image?: string | null};
+  initialData: {fullName: string; phone: string; email: string; image?: string | null; country_code?: string};
 }
 
 export const EditProfileModal: React.FC<EditProfileModalProps> = ({visible, onClose, onSuccess, initialData}) => {
@@ -31,7 +31,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({visible, onCl
   useEffect(() => {
     if (visible) {
       setEditedInfo({phone: initialData.phone, fullName: initialData.fullName});
-      // Reset selected country if needed or try to infer from phone (complex without parsing lib)
+      // Try to use saved country_code first
       setSelectedCountry(null);
       setProfileImage(initialData.image || null);
     }
@@ -172,6 +172,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({visible, onCl
               selectedCountry={selectedCountry}
               onChangeSelectedCountry={setSelectedCountry}
               onChangePhoneNumber={(text) => setEditedInfo((p) => ({...p, phone: text}))}
+              defaultCountry={initialData.country_code || 'US'}
             />
 
             {/* Email */}

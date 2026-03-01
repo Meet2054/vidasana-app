@@ -1,7 +1,6 @@
-import {withLayoutContext, useRouter} from 'expo-router';
+import {withLayoutContext, useRouter, usePathname} from 'expo-router';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {createMaterialTopTabNavigator} from '@react-navigation/material-top-tabs';
-import {useNavigationState} from '@react-navigation/native';
 import {Alert, Pressable, View} from 'react-native';
 import {Feather} from '@expo/vector-icons';
 import {useTranslation} from 'react-i18next';
@@ -12,12 +11,12 @@ const {Navigator} = createMaterialTopTabNavigator();
 export const MaterialTopTabs = withLayoutContext(Navigator);
 
 export default function TopTabsLayout() {
-  const {t} = useTranslation();
   const router = useRouter();
+  const {t} = useTranslation();
   const {data: stripeStatus, isLoading: isCheckingStripe} = useStripeStatus();
 
-  // 0 = Services (index), 1 = Events
-  const activeIndex = useNavigationState((state) => state?.index ?? 0);
+  const pathname = usePathname();
+  const isEventsTab = pathname.includes('/events');
 
   const handleCreate = () => {
     if (!isCheckingStripe && !stripeStatus?.isConnected) {
@@ -30,7 +29,7 @@ export default function TopTabsLayout() {
         ]
       );
     } else {
-      router.push(activeIndex === 1 ? '/(provider)/events/create' : '/(provider)/services/create');
+      router.push(isEventsTab ? '/(provider)/events/create' : '/(provider)/services/create');
     }
   };
 

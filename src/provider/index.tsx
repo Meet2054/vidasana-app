@@ -40,6 +40,8 @@ const AppProvider = ({children}: {children: ReactElement}) => {
         router.replace('/contact-support?reason=reject');
       } else if (status === 'delete') {
         router.replace('/contact-support?reason=delete');
+      } else if (status === 'suspended') {
+        router.replace('/contact-support?reason=suspended');
       }
     };
     // supabase.auth.signOut();

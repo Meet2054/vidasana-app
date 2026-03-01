@@ -7,11 +7,10 @@ import {Ionicons} from '@expo/vector-icons';
 import {useTranslation} from 'react-i18next';
 import Toast from 'react-native-toast-message';
 import {useForm, Controller} from 'react-hook-form';
-import {View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Image} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
+import {Button, Display, Body, Caption} from '@/components';
 import Animated, {FadeInDown, FadeInUp} from 'react-native-reanimated';
-import {Display, Body, Caption} from '@/components';
-import {Button} from '@/components';
+import {View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Image} from 'react-native';
 
 const Page = () => {
   const {t} = useTranslation();

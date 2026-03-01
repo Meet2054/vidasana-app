@@ -11,6 +11,8 @@ interface EventCardProps {
   title: string;
   description: string;
   price?: number | null;
+  minPrice?: number | null;
+  maxPrice?: number | null;
   images: string[] | null;
   startAt: string;
   distance?: number;
@@ -30,6 +32,8 @@ export const EventCard = ({
   title,
   description,
   price,
+  minPrice,
+  maxPrice,
   images,
   startAt,
   distance,
@@ -48,6 +52,18 @@ export const EventCard = ({
     if (!meters && meters !== 0) return null;
     if (meters < 1000) return `${Math.round(meters)}m`;
     return `${(meters / 1000).toFixed(1)} km`;
+  };
+
+  const renderPrice = () => {
+    // If we have min/max price (Event)
+    if (minPrice !== undefined && maxPrice !== undefined && (minPrice !== null || maxPrice !== null)) {
+      if (minPrice === 0 && maxPrice === 0) return 'Free';
+      if (minPrice === maxPrice) return `$${minPrice}`;
+      return `$${minPrice} - $${maxPrice}`;
+    }
+    // Fallback to single price (Service or legacy Event)
+    if (price === 0) return 'Free';
+    return `$${price || 0}`;
   };
 
   // Date Badge Info
@@ -119,7 +135,7 @@ export const EventCard = ({
             </View>
 
             <View className="items-end">
-              <H2 className="text-deep-teal">${price || 0}</H2>
+              <H2 className="text-deep-teal">{renderPrice()}</H2>
             </View>
           </View>
 

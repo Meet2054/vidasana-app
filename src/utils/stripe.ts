@@ -67,15 +67,31 @@ export const fetchPaymentSheetParams = async ({id, type, ticketId}: {id: string;
     }
 
     // 3. Get Ephemeral Key via Edge Function
-    const {data: ekData, error: ekError} = await supabase.functions.invoke('stripe-connect', {body: {action: 'create-ephemeral-key', customerId}});
+    const {data: ekData, error: ekError} = await supabase.functions.invoke('stripe-connect', {
+      body: {action: 'create-ephemeral-key', customerId},
+    });
+
     if (ekError) throw ekError;
+    if (ekData?.error) throw new Error(`Ephemeral Key Error: ${ekData.error}`);
+
+    // If price is 0, skip Payment Intent (it's a free item)
+    if (price === 0) {
+      return {
+        customer: customerId,
+        ephemeralKey: ekData.secret,
+        paymentIntent: null, // No payment intent for free items
+        publishableKey: process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+      };
+    }
 
     // 4. Create Payment Intent via Edge Function
     const amount = Math.round(price * 100);
     const {data: piData, error: piError} = await supabase.functions.invoke('stripe-connect', {
       body: {amount, customerId, providerId, action: 'create-payment-intent'},
     });
+
     if (piError) throw piError;
+    if (piData?.error) throw new Error(`Payment Intent Error: ${piData.error}`);
 
     return {
       customer: customerId,
@@ -84,7 +100,7 @@ export const fetchPaymentSheetParams = async ({id, type, ticketId}: {id: string;
       publishableKey: process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY,
     };
   } catch (error: any) {
-    Alert.alert('Payment Error', error.message);
+    console.error('fetchPaymentSheetParams Error:', error);
     throw error;
   }
 };
