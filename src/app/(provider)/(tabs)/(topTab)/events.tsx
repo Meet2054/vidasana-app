@@ -1,8 +1,7 @@
-import {Link} from 'expo-router';
 import {supabase} from '@/utils';
 import {Feather} from '@expo/vector-icons';
 import {useQuery} from '@tanstack/react-query';
-import {ActivityIndicator, FlatList, Pressable, RefreshControl, View} from 'react-native';
+import {ActivityIndicator, FlatList, RefreshControl, View} from 'react-native';
 import {useAppStore} from '@/store';
 import {useTranslation} from 'react-i18next';
 import {H3, Body, EventCard} from '@/components';
@@ -73,13 +72,6 @@ export default function EventsScreen() {
           />
         )}
       </View>
-
-      {/* FAB */}
-      <Link href="/(provider)/events/create" asChild>
-        <Pressable className="absolute bottom-6 h-14 w-14 items-center justify-center self-center rounded-full bg-primary shadow-lg">
-          <Feather name="plus" size={30} color="white" />
-        </Pressable>
-      </Link>
     </View>
   );
 }
