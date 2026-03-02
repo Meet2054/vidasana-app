@@ -63,17 +63,7 @@ export default function ReceiptScreen() {
       // SERVICE BOOKING (Default)
       const {data, error} = await supabase
         .from('services_booking')
-        .select(
-          `
-            *,
-            service:services (
-                *,
-                provider:profile (*),
-                category:categories (*)
-            ),
-            payment:payments (*)
-        `
-        )
+        .select(`*, service:services (*, provider:profile (*), category:categories (*)), payment:payments (*)`)
         .eq('id', id)
         .single();
 

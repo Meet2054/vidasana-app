@@ -5,10 +5,9 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import {supabase} from '@/utils';
 import {useAppStore} from '@/store';
 import {useRouter} from 'expo-router';
-import {BookingCard} from '@/components';
 import {Feather} from '@expo/vector-icons';
 import dayjs from 'dayjs';
-import {H2, H3, Body, Caption} from '@/components';
+import {H2, H3, Body, Caption, BookingCard} from '@/components';
 
 type Booking = {
   id: string;

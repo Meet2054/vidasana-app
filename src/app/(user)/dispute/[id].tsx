@@ -1,10 +1,10 @@
 import React, {useEffect, useState} from 'react';
-import {View, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert, Linking} from 'react-native';
+import {View, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert} from 'react-native';
 import {useLocalSearchParams, useRouter} from 'expo-router';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {Ionicons, Feather} from '@expo/vector-icons';
 import {supabase} from '@/utils/supabase';
-import {H2, H3, Body, Caption} from '@/components';
+import {H3, Body, Caption} from '@/components';
 import dayjs from 'dayjs';
 import {useTranslation} from 'react-i18next';
 

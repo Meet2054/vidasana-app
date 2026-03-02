@@ -7,8 +7,7 @@ import {ActivityIndicator, ScrollView, TouchableOpacity, View, Modal, Pressable,
 import MapView, {Marker, PROVIDER_GOOGLE} from 'react-native-maps';
 import {useTranslation} from 'react-i18next';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {ImageCarousel} from '@/components';
-import {H2, H3, Body, Caption} from '@/components';
+import {ImageCarousel, H2, H3, Body, Caption} from '@/components';
 import Toast from 'react-native-toast-message';
 
 export default function EventDetailsScreen() {

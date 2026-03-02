@@ -2,7 +2,7 @@ import React from 'react';
 import {Ionicons} from '@expo/vector-icons';
 import {Body, Subtitle} from './Typography'; // Assuming these exist in the same directory or are exported from index
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {Modal, View, TouchableOpacity, ScrollView, Platform, Text, Linking} from 'react-native';
+import {Modal, View, TouchableOpacity, ScrollView, Text, Linking} from 'react-native';
 
 interface LegalModalProps {
   visible: boolean;

@@ -2,7 +2,6 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import {KeyboardAvoidingView, Platform, ScrollView, View, TextInput, TouchableOpacity, Image, ActivityIndicator} from 'react-native';
 import {useState} from 'react';
 import {useForm, Controller} from 'react-hook-form';
-import {PasswordStrengthBar} from '@/components';
 import {supabase} from '@/utils';
 import Toast from 'react-native-toast-message';
 import {useRouter} from 'expo-router';
@@ -10,7 +9,7 @@ import {Ionicons} from '@expo/vector-icons';
 import Animated, {FadeInDown, FadeInUp} from 'react-native-reanimated';
 import {useTranslation} from 'react-i18next';
 import {IMAGES} from '@/assets';
-import {H2, Body, Caption} from '@/components';
+import {H2, Body, Caption, PasswordStrengthBar} from '@/components';
 
 type FormValues = {
   newPassword: string;

@@ -79,7 +79,7 @@ export default function HomeScreen() {
         search_query: debouncedSearchQuery || undefined,
         target_lang: i18n.language,
         category_filter: selectedCategories.length > 0 ? selectedCategories : undefined,
-        day_filter: activeTab === 'services' && selectedDays.length > 0 ? selectedDays : undefined,
+        day_filter: (activeTab === 'services' && selectedDays.length > 0 ? selectedDays : undefined) as any,
         date_from: activeTab === 'events' && dateFrom ? dateFrom.toISOString() : undefined,
         date_to: activeTab === 'events' && dateTo ? dateTo.toISOString() : undefined,
         user_lat: userLocation?.latitude || undefined,

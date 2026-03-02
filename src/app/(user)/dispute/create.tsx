@@ -7,7 +7,7 @@ import {useTranslation} from 'react-i18next';
 import * as ImagePicker from 'expo-image-picker';
 import {supabase} from '@/utils/supabase';
 import {useAppStore} from '@/store';
-import {H2, H3, Body, Caption} from '@/components'; // Assuming these exist
+import {H3, Body, Caption} from '@/components'; // Assuming these exist
 import Toast from 'react-native-toast-message';
 
 export default function CreateDisputeScreen() {

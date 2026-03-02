@@ -4,9 +4,8 @@ import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import {Feather} from '@expo/vector-icons';
 import {useTranslation} from 'react-i18next';
 import {useQuery} from '@tanstack/react-query';
-import {supabase} from '@/utils'; // Adjust path if needed
-import {H3, Subtitle, Body, Caption, H2} from '../Typography';
-
+import {supabase} from '@/utils';
+import {Subtitle, Body, Caption, H2} from '../Typography';
 import Slider from '@react-native-community/slider';
 
 // Types
