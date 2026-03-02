@@ -23,7 +23,7 @@ import {Rating} from 'react-native-ratings';
 import Toast from 'react-native-toast-message';
 import {useEffect, useState} from 'react';
 import {useStripe} from '@stripe/stripe-react-native';
-import {supabase, fetchPaymentSheetParams} from '@/utils';
+import {supabase, fetchPaymentSheetParams, parseLocation} from '@/utils';
 import {LikeButton, ImageCarousel, H2, H3, Body, Caption} from '@/components';
 
 export default function UserEventDetailsScreen() {
@@ -186,8 +186,7 @@ export default function UserEventDetailsScreen() {
 
       return {
         ...data,
-        lat: (data as any).location?.coordinates ? (data as any).location.coordinates[1] : null,
-        lng: (data as any).location?.coordinates ? (data as any).location.coordinates[0] : null,
+        ...parseLocation((data as any).location),
         is_liked: count ? count > 0 : false,
       };
     },

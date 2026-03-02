@@ -1,5 +1,5 @@
 import {Feather} from '@expo/vector-icons';
-import {supabase} from '@/utils/supabase';
+import {supabase, parseLocation} from '@/utils';
 import {useQuery, useMutation, useQueryClient} from '@tanstack/react-query';
 import {Link, useLocalSearchParams, useRouter} from 'expo-router';
 import React, {useState} from 'react';
@@ -51,11 +51,7 @@ export default function EventDetailsScreen() {
 
       if (error) throw error;
 
-      return {
-        ...data,
-        lat: (data as any).location?.coordinates ? (data as any).location.coordinates[1] : null,
-        lng: (data as any).location?.coordinates ? (data as any).location.coordinates[0] : null,
-      };
+      return {...data, ...parseLocation((data as any).location)};
     },
   });
 

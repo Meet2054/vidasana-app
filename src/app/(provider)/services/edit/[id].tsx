@@ -7,7 +7,7 @@ import {useQuery, useMutation, useQueryClient} from '@tanstack/react-query';
 import {Feather} from '@expo/vector-icons';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import Toast from 'react-native-toast-message';
-import {supabase, uploadFile} from '@/utils';
+import {supabase, uploadFile, parseLocation} from '@/utils';
 import {useAppStore} from '@/store';
 import {Enums} from '@/types';
 import {useTranslation} from 'react-i18next';
@@ -24,21 +24,6 @@ export default function EditServiceScreen() {
   const {t} = useTranslation();
   const {id} = useLocalSearchParams<{id: string}>();
   const queryClient = useQueryClient();
-
-  // Robust location parsing logic to handle PostGIS POINTS
-  const parseLocation = (loc: any) => {
-    if (!loc) return {lat: null, lng: null};
-    // PostGIS POINT('lng lat') string format
-    if (typeof loc === 'string' && loc.startsWith('POINT(')) {
-      const coords = loc.replace('POINT(', '').replace(')', '').split(' ');
-      return {lng: parseFloat(coords[0]), lat: parseFloat(coords[1])};
-    }
-    // GeoJSON format
-    if (loc.coordinates && Array.isArray(loc.coordinates)) {
-      return {lng: loc.coordinates[0], lat: loc.coordinates[1]};
-    }
-    return {lat: null, lng: null};
-  };
 
   const [isTimePickerVisible, setTimePickerVisible] = useState(false);
   const [activeTimeField, setActiveTimeField] = useState<'start_at' | 'end_at' | null>(null);

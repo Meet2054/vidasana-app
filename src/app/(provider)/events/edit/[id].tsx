@@ -1,7 +1,6 @@
 import {Feather, Ionicons} from '@expo/vector-icons';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {supabase, uploadFile} from '@/utils/supabase';
-import {Tables} from '@/types';
+import {supabase, uploadFile, parseLocation} from '@/utils';
 import {useAppStore} from '@/store';
 import {useForm, Controller} from 'react-hook-form';
 import {useQuery, useMutation, useQueryClient} from '@tanstack/react-query';
@@ -11,10 +10,8 @@ import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import React, {useEffect, useState} from 'react';
 import Toast from 'react-native-toast-message';
 import {useTranslation} from 'react-i18next';
-import {EventFormValues, EventUnifiedImage} from '@/types/events';
+import {EventFormValues, EventUnifiedImage} from '@/types';
 import {H2, Body, Caption, ImageInput, LocationInput} from '@/components';
-
-type Category = Tables<'categories'>;
 
 export default function EditEventScreen() {
   const {id: idParam} = useLocalSearchParams();
@@ -23,30 +20,17 @@ export default function EditEventScreen() {
   const {t} = useTranslation();
   const queryClient = useQueryClient();
 
-  // Robust location parsing logic to handle PostGIS POINTS
-  const parseLocation = (loc: any) => {
-    if (!loc) return {lat: null, lng: null};
-    if (typeof loc === 'string' && loc.startsWith('POINT(')) {
-      const coords = loc.replace('POINT(', '').replace(')', '').split(' ');
-      return {lng: parseFloat(coords[0]), lat: parseFloat(coords[1])};
-    }
-    if (loc.coordinates && Array.isArray(loc.coordinates)) {
-      return {lng: loc.coordinates[0], lat: loc.coordinates[1]};
-    }
-    return {lat: null, lng: null};
-  };
-
   const [isTimePickerVisible, setTimePickerVisible] = useState(false);
   const [activeTimeField, setActiveTimeField] = useState<'start_at' | 'end_at' | 'book_till' | null>(null);
   const [datePickerMode, setDatePickerMode] = useState<'date' | 'time' | 'datetime'>('datetime');
 
   const {
     watch,
+    reset,
     control,
     setValue,
     handleSubmit,
-    reset,
-    formState: {errors, isSubmitting},
+    formState: {isSubmitting},
   } = useForm<EventFormValues>({
     defaultValues: {
       title: '',
@@ -86,16 +70,7 @@ export default function EditEventScreen() {
       // Actually, let's use the standard select and see.
       // BUT, earlier we confirmed services had lat/lng because of a VIEW or logic.
       // Let's try to query it.
-      const {data, error} = await supabase
-        .from('events')
-        .select(
-          `
-          *,
-          event_ticket_types(*)
-        `
-        )
-        .eq('id', id)
-        .single();
+      const {data, error} = await supabase.from('events').select(`*, event_ticket_types(*)`).eq('id', id).single();
 
       if (error) throw error;
 

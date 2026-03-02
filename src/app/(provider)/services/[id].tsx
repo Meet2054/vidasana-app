@@ -1,24 +1,24 @@
 import React, {useState} from 'react';
-import {View, ScrollView, Image, TouchableOpacity, Alert, ActivityIndicator, Modal, Pressable} from 'react-native';
+import {View, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Modal, Pressable, Platform, Linking} from 'react-native';
 import {useLocalSearchParams, useRouter, Link} from 'expo-router';
 import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useQuery, useMutation, useQueryClient} from '@tanstack/react-query';
 import {Feather, Ionicons} from '@expo/vector-icons';
-import {supabase} from '@/utils/supabase';
+import {supabase, formatTime, parseLocation} from '@/utils';
 import Toast from 'react-native-toast-message';
 import {useTranslation} from 'react-i18next';
-import MapView, {Marker, PROVIDER_GOOGLE} from 'react-native-maps';
-import {H2, H3, Body, Caption, ImageCarousel} from '@/components';
+import dayjs from 'dayjs';
+import {Avatar, H2, H3, Body, Caption, Subtitle, ImageCarousel} from '@/components';
 
 export default function ServiceDetailsScreen() {
-  const {t, i18n} = useTranslation();
+  const {t} = useTranslation();
   const {id} = useLocalSearchParams<{id: string}>();
   const router = useRouter();
   const queryClient = useQueryClient();
   const {top} = useSafeAreaInsets();
   const [menuVisible, setMenuVisible] = useState(false);
 
-  // Fetch Service Details
+  // Single RPC — returns service, rating summary, and reviews together
   const {
     error,
     isLoading,
@@ -26,35 +26,15 @@ export default function ServiceDetailsScreen() {
   } = useQuery({
     queryKey: ['service', id],
     queryFn: async () => {
-      const {data, error} = await supabase.from('services').select(`*, categories(name)`).eq('id', id).single();
-
+      const {data, error} = await supabase.rpc('get_service_by_id', {target_id: id});
       if (error) throw error;
-      return data;
+      return (data as any) ?? null;
     },
     enabled: !!id,
   });
 
-  // Fetch Rating Summary
-  const {data: ratingSummary} = useQuery({
-    queryKey: ['service_rating_summary', id],
-    queryFn: async () => {
-      const {data, error} = await supabase.rpc('get_service_rating_summary', {target_service_id: id});
-      if (error) throw error;
-      return data && data.length > 0 ? data[0] : {avg_rating: 0, count: 0};
-    },
-    enabled: !!id,
-  });
-
-  // Fetch Reviews
-  const {data: reviews} = useQuery({
-    queryKey: ['service_reviews', id],
-    queryFn: async () => {
-      const {data, error} = await supabase.rpc('get_service_reviews', {target_service_id: id});
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!id,
-  });
+  const ratingSummary = {avg_rating: service?.avg_rating ?? 0, count: service?.review_count ?? 0};
+  const reviews: any[] = service?.reviews ?? [];
 
   // Toggle Status Mutation
   const toggleStatusMutation = useMutation({
@@ -112,12 +92,32 @@ export default function ServiceDetailsScreen() {
     );
   }
 
-  // Generate Image URL (use first image for now, can be carousel later)
-  const imageUrl =
-    service.images && service.images.length > 0 ? supabase.storage.from('images').getPublicUrl(service.images[0]).data.publicUrl : null;
+  const {lat, lng} = parseLocation(service.location);
 
-  const lat = (service.location as any)?.coordinates ? (service.location as any).coordinates[1] : null;
-  const lng = (service.location as any)?.coordinates ? (service.location as any).coordinates[0] : null;
+  const openAddressOnMap = (mapLat: number | null, mapLng: number | null, label: string) => {
+    let url: string | undefined;
+    if (mapLat && mapLng) {
+      const scheme = Platform.select({ios: 'maps:0,0?q=', android: 'geo:0,0?q='});
+      const latLng = `${mapLat},${mapLng}`;
+      url = Platform.select({ios: `${scheme}${label}@${latLng}`, android: `${scheme}${latLng}(${label})`});
+    } else if (label) {
+      // Fall back to address search if no coordinates
+      url = Platform.select({
+        ios: `maps:?q=${encodeURIComponent(label)}`,
+        android: `geo:0,0?q=${encodeURIComponent(label)}`,
+      });
+    }
+    if (url) Linking.openURL(url).catch((err) => Toast.show({type: 'error', text1: 'Error opening map', text2: err.message}));
+  };
+
+  // Format Available Days
+  const availableDaysText = (() => {
+    if (!service || !service.week_day) return 'All Days';
+    if (service.week_day.length === 7) return 'Every Day';
+    const orderedDays = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+    const sortedDays = [...service.week_day].sort((a: string, b: string) => orderedDays.indexOf(a) - orderedDays.indexOf(b));
+    return sortedDays.map((d: string) => d.charAt(0).toUpperCase() + d.slice(1)).join(', ');
+  })();
 
   return (
     <SafeAreaView className="flex-1 bg-white">
@@ -155,15 +155,15 @@ export default function ServiceDetailsScreen() {
         </Modal>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Valid Image */}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{paddingBottom: 40}}>
+        {/* Image Carousel */}
         <View className="aspect-square w-full bg-gray-100">
           <ImageCarousel images={service?.images} aspectRatio="square" />
         </View>
 
-        <View className="p-5 pb-20">
+        <View className="bg-white px-6 pb-6 pt-5">
           {/* Category & Status */}
-          <View className="mb-2 flex-row items-center justify-between">
+          <View className="mb-3 flex-row items-center justify-between">
             <View className="rounded-full bg-primary/20 px-3 py-1">
               <Caption className="font-bold uppercase text-primary">{service.categories?.name || 'Service'}</Caption>
             </View>
@@ -175,109 +175,127 @@ export default function ServiceDetailsScreen() {
             </View>
           </View>
 
-          {/* Title & Price */}
-          <View className="mb-4 flex-row items-start justify-between">
-            <View className="flex-1">
-              <H2 className="mr-2 text-2xl text-gray-900">{service.title}</H2>
-              {/* Rating Summary */}
-              <View className="mt-1 flex-row items-center gap-1">
+          {/* Title, Rating & Price */}
+          <View className="mb-2 items-center">
+            <H2 align="center" className="mb-2 font-nunito-extra-bold text-[24px] leading-8 text-gray-900">
+              {service.title}
+            </H2>
+            <View className="flex-row items-center gap-1">
+              <Ionicons name="star" size={16} color="#F59E0B" />
+              <Body className="font-bold text-gray-900">{ratingSummary?.avg_rating?.toFixed(1) || '0.0'}</Body>
+              <Body className="text-gray-500">({ratingSummary?.count || 0} reviews)</Body>
+              <Body className="ml-4 font-nunito-bold text-[20px] text-primary">${service.price?.toFixed(2) || '0.00'}</Body>
+            </View>
+          </View>
+
+          <View className="mb-5 mt-3 h-[1px] w-full bg-gray-100" />
+
+          {/* About Section */}
+          <View className="mb-5">
+            <H2 className="mb-3 text-[18px] text-gray-900">{t('services.aboutService')}</H2>
+            <Body className="text-[15px] leading-6 text-gray-600">{service.description || 'No description provided.'}</Body>
+          </View>
+
+          <View className="mb-5 h-[1px] w-full bg-gray-100" />
+
+          {/* Service Details Section */}
+          <View className="mb-2">
+            <H2 className="mb-4 text-[18px] text-gray-900">Service Details</H2>
+
+            {/* Availability */}
+            <View className="mb-3 flex-row gap-4">
+              <View className="h-10 w-10 items-center justify-center rounded-xl bg-[#FFF0F0]">
+                <Ionicons name="calendar" size={20} color="#E9967A" />
+              </View>
+              <View className="flex-1 justify-center">
+                <Subtitle className="font-nunito-bold tracking-widest text-gray-500">AVAILABILITY</Subtitle>
+                <H3 className="text-[15px] capitalize text-gray-900">{availableDaysText}</H3>
+              </View>
+            </View>
+
+            {/* Location */}
+            <View className="mb-4 flex-row gap-4">
+              <View className="h-10 w-10 items-center justify-center rounded-xl bg-[#FFF0F0]">
+                <Ionicons name="location" size={20} color="#E9967A" />
+              </View>
+              <View className="flex-1 justify-center">
+                <Subtitle className="font-nunito-bold tracking-widest text-gray-500">LOCATION</Subtitle>
+                <H3 className="text-[15px] leading-5 text-gray-900">{service.address || 'Not specified'}</H3>
+                {(service.address || lat) && (
+                  <TouchableOpacity onPress={() => openAddressOnMap(lat, lng, service.address || service.title || '')}>
+                    <Body className="font-nunito-bold text-[13px] text-primary">View on map</Body>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+
+            {/* Capacity */}
+            <View className="mb-4 flex-row gap-4">
+              <View className="h-10 w-10 items-center justify-center rounded-xl bg-gray-50">
+                <Ionicons name="people" size={20} color="#6B7280" />
+              </View>
+              <View className="flex-1 justify-center">
+                <Subtitle className="font-nunito-bold tracking-widest text-gray-500">CAPACITY</Subtitle>
+                <H3 className="text-[15px] text-gray-900">{service.capacity || '0'} participants</H3>
+              </View>
+            </View>
+
+            {/* Time */}
+            <View className="flex-row gap-4">
+              <View className="h-10 w-10 items-center justify-center rounded-xl bg-gray-50">
+                <Ionicons name="time-outline" size={20} color="#6B7280" />
+              </View>
+              <View className="flex-1 justify-center">
+                <Subtitle className="font-nunito-bold tracking-widest text-gray-500">TIME</Subtitle>
+                <H3 className="text-[15px] text-gray-900">
+                  {service.start_at && service.end_at ? `${formatTime(service.start_at)} - ${formatTime(service.end_at)}` : 'N/A'}
+                </H3>
+              </View>
+            </View>
+          </View>
+
+          <View className="mb-5 mt-5 h-[1px] w-full bg-gray-100" />
+
+          {/* Reviews Section */}
+          <View className="mb-2">
+            <View className="mb-4 flex-row items-center justify-between">
+              <H2 className="text-[18px] text-gray-900">Reviews</H2>
+              <View className="flex-row items-center gap-1">
                 <Ionicons name="star" size={16} color="#F59E0B" />
-                <Body className="font-bold text-gray-900">{ratingSummary?.avg_rating?.toFixed(1) || '0.0'}</Body>
-                <Body className="text-gray-500">({ratingSummary?.count || 0} reviews)</Body>
+                <Body className="font-nunito-bold text-[15px] text-gray-900">{ratingSummary?.avg_rating?.toFixed(1) || '0.0'}</Body>
+                <Caption className="text-gray-500">({ratingSummary?.count || 0})</Caption>
               </View>
             </View>
-            <H2 className="text-2xl text-primary">${service.price}</H2>
-          </View>
 
-          {/* Details Row */}
-          <View className="mb-6 flex-row justify-between rounded-xl bg-gray-50 p-4">
-            <View className="flex-1 items-center border-r border-gray-200">
-              <Feather name="clock" size={20} color="#4B5563" className="mb-1" />
-              <Caption className="mb-1 text-gray-500">{t('services.duration')}</Caption>
-              <Body className="font-bold text-gray-900">
-                {service.start_at?.slice(0, 5)} - {service.end_at?.slice(0, 5)}
-              </Body>
-            </View>
-            <View className="flex-1 items-center">
-              <Feather name="users" size={20} color="#4B5563" className="mb-1" />
-              <Caption className="mb-1 text-gray-500">{t('events.capacity')}</Caption>
-              <Body className="font-bold text-gray-900">{service.capacity} People</Body>
-            </View>
-          </View>
-
-          {/* Location Map */}
-          {lat && lng && (
-            <View className="mb-6 h-40 overflow-hidden rounded-xl bg-gray-100">
-              <MapView
-                provider={PROVIDER_GOOGLE}
-                style={{flex: 1}}
-                initialRegion={{
-                  latitude: lat,
-                  longitude: lng,
-                  latitudeDelta: 0.01,
-                  longitudeDelta: 0.01,
-                }}
-                scrollEnabled={false}
-                zoomEnabled={false}
-                pitchEnabled={false}
-                rotateEnabled={false}>
-                <Marker coordinate={{latitude: lat, longitude: lng}} />
-              </MapView>
-              <View pointerEvents="none" className="absolute bottom-0 left-0 right-0 top-0 items-center justify-center">
-                <View className="mb-4">
-                  <Feather name="map-pin" size={32} color="#15803d" />
-                </View>
-              </View>
-            </View>
-          )}
-
-          {/* Description */}
-          <H3 className="mb-2 text-lg text-gray-900">{t('services.aboutService')}</H3>
-          <Body className="mb-6 leading-6 text-gray-600">{service.description || 'No description provided.'}</Body>
-
-          {/* Schedule */}
-          <H3 className="mb-3 text-lg text-gray-900">{t('services.schedule')}</H3>
-          <View className="mb-6 flex-row flex-wrap gap-2">
-            {['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((day) => {
-              const isActive = service.week_day?.includes(day as any);
-              return (
-                <View key={day} className={`h-10 w-10 items-center justify-center rounded-full ${isActive ? 'bg-primary' : 'bg-gray-100'}`}>
-                  <Caption className={`font-bold uppercase ${isActive ? 'text-white' : 'text-gray-400'}`}>{day.slice(0, 3)}</Caption>
-                </View>
-              );
-            })}
-          </View>
-
-          {/* Reviews List */}
-          <View className="mt-2">
-            <H3 className="mb-2 text-lg text-gray-900">Reviews ({ratingSummary?.count || 0})</H3>
             {reviews && reviews.length > 0 ? (
               reviews.map((review: any) => (
-                <View key={review.id} className="mb-4 rounded-xl border border-gray-100 bg-gray-50 p-4">
+                <View key={review.id} className="mb-4">
                   <View className="mb-2 flex-row items-center justify-between">
-                    <View className="flex-row items-center gap-2">
-                      {review.user_image ? (
-                        <Image
-                          source={{uri: supabase.storage.from('avatars').getPublicUrl(review.user_image).data.publicUrl}}
-                          className="h-8 w-8 rounded-full"
-                        />
-                      ) : (
-                        <View className="h-8 w-8 items-center justify-center rounded-full bg-gray-300">
-                          <Feather name="user" size={16} color="white" />
+                    <View className="flex-row items-center gap-3">
+                      <Avatar size={36} name={review.user_name} uri={review.user_image} />
+                      <View>
+                        <Body className="font-nunito-bold text-[14px] text-gray-900">{review.user_name || 'Anonymous'}</Body>
+                        <View className="flex-row items-center gap-0.5">
+                          {[...Array(5)].map((_, i) => (
+                            <Ionicons
+                              key={i}
+                              size={10}
+                              name={i < review.rating ? 'star' : 'star-outline'}
+                              color={i < review.rating ? '#F59E0B' : '#D1D5DB'}
+                            />
+                          ))}
                         </View>
-                      )}
-                      <Body className="font-bold text-gray-900">{review.user_name || 'Anonymous'}</Body>
+                      </View>
                     </View>
-                    <View className="flex-row items-center">
-                      <Ionicons name="star" size={14} color="#F59E0B" />
-                      <Caption className="ml-1 font-bold text-gray-900">{review.rating}</Caption>
-                    </View>
+                    <Caption className="text-gray-400">{review.created_at ? dayjs(review.created_at).format('DD MMM YYYY') : ''}</Caption>
                   </View>
-                  {review.comment && <Body className="text-gray-600">{review.comment}</Body>}
+                  {review.comment && <Body className="pl-[48px] text-[14px] leading-5 text-gray-600">{review.comment}</Body>}
                 </View>
               ))
             ) : (
-              <Body className="italic text-gray-500">No reviews yet.</Body>
+              <View className="items-center justify-center py-4">
+                <Body className="italic text-gray-500">No reviews yet.</Body>
+              </View>
             )}
           </View>
         </View>
