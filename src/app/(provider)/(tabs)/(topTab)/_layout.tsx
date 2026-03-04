@@ -1,10 +1,13 @@
-import {withLayoutContext, useRouter, usePathname} from 'expo-router';
-import {SafeAreaView} from 'react-native-safe-area-context';
-import {createMaterialTopTabNavigator} from '@react-navigation/material-top-tabs';
-import {Alert, Pressable, View} from 'react-native';
+import {supabase} from '@/utils';
+import {useAppStore} from '@/store';
+import {useStripeStatus} from '@/hooks';
+import {useEffect} from 'react';
 import {Feather} from '@expo/vector-icons';
 import {useTranslation} from 'react-i18next';
-import {useStripeStatus} from '@/hooks';
+import {Alert, Pressable, View} from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import {withLayoutContext, useRouter, usePathname} from 'expo-router';
+import {createMaterialTopTabNavigator} from '@react-navigation/material-top-tabs';
 
 const {Navigator} = createMaterialTopTabNavigator();
 
@@ -13,14 +16,40 @@ export const MaterialTopTabs = withLayoutContext(Navigator);
 export default function TopTabsLayout() {
   const router = useRouter();
   const {t} = useTranslation();
+  const pathname = usePathname();
+  const {user} = useAppStore((s) => s.session!);
+  const isEventsTab = pathname.includes('/events');
+  const profileStatus = useAppStore((s) => s.profileStatus);
+  const checkProfileStatus = useAppStore((s) => s.checkProfileStatus);
   const {data: stripeStatus, isLoading: isCheckingStripe} = useStripeStatus();
 
-  const pathname = usePathname();
-  const isEventsTab = pathname.includes('/events');
+  useEffect(() => {
+    if (!profileStatus) checkProfileStatus();
+  }, [user?.id]);
 
   const handleCreate = () => {
-    if (!isCheckingStripe && !stripeStatus?.isConnected) {
-      Alert.alert(
+    if (!profileStatus)
+      return Alert.alert('Failed to load profile', 'Please try again later.', [{text: 'OK', style: 'default', onPress: () => checkProfileStatus()}]);
+
+    if (profileStatus === 'onboarding')
+      return Alert.alert('Profile Incomplete', 'Please complete your profile details in settings to start creating services or events.', [
+        {text: 'OK', style: 'default', onPress: () => router.push('/(provider)/(tabs)/setting')},
+      ]);
+
+    if (profileStatus === 'pending')
+      return Alert.alert(
+        'Profile Under Review',
+        'Your profile is currently under review. You will be able to create services and events once approved.',
+        [{text: 'OK', style: 'default'}]
+      );
+
+    if (profileStatus === 'reject')
+      return Alert.alert('Profile Rejected', 'Your profile was not approved. Please update your details in settings and resubmit.', [
+        {text: 'OK', style: 'default', onPress: () => router.push('/(provider)/(tabs)/setting')},
+      ]);
+
+    if (!isCheckingStripe && !stripeStatus?.isConnected)
+      return Alert.alert(
         t('stripe.notConnectedTitle', 'Stripe Not Connected'),
         t('stripe.notConnectedMessage', 'You must connect your bank account via Stripe before creating listings so you can receive payouts.'),
         [
@@ -28,9 +57,8 @@ export default function TopTabsLayout() {
           {text: t('stripe.connectNow', 'Connect Stripe'), onPress: () => router.push('/(provider)/payment-setup')},
         ]
       );
-    } else {
-      router.push(isEventsTab ? '/(provider)/events/create' : '/(provider)/services/create');
-    }
+
+    router.push(isEventsTab ? '/(provider)/events/create' : '/(provider)/services/create');
   };
 
   return (

@@ -9,7 +9,10 @@
     "platforms": ["ios", "android"],
     "assetBundlePatterns": ["**/*"],
     "userInterfaceStyle": "automatic",
-    "experiments": {"typedRoutes": true, "tsconfigPaths": true},
+    "experiments": {
+      "typedRoutes": true,
+      "tsconfigPaths": true
+    },
     "web": {
       "bundler": "metro",
       "output": "static",
@@ -18,13 +21,24 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.vidasana",
-      "infoPlist": {"ITSAppUsesNonExemptEncryption": false},
-      "config": {"googleMapsApiKey": "AIzaSyD2Q1ArCXQ_-R_FBH8sXrRWwF6NDqHT2Hk"}
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "config": {
+        "googleMapsApiKey": "AIzaSyD2Q1ArCXQ_-R_FBH8sXrRWwF6NDqHT2Hk"
+      }
     },
     "android": {
       "package": "com.vidasana",
-      "config": {"googleMaps": {"apiKey": "AIzaSyD2Q1ArCXQ_-R_FBH8sXrRWwF6NDqHT2Hk"}},
-      "adaptiveIcon": {"backgroundColor": "#FFFFFF", "foregroundImage": "./src/assets/adaptive-icon.png"},
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyD2Q1ArCXQ_-R_FBH8sXrRWwF6NDqHT2Hk"
+        }
+      },
+      "adaptiveIcon": {
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./src/assets/adaptive-icon.png"
+      },
       "permissions": ["android.permission.ACCESS_COARSE_LOCATION", "android.permission.ACCESS_FINE_LOCATION"]
     },
     "plugins": [
@@ -33,11 +47,49 @@
       "expo-sqlite",
       "expo-secure-store",
       "expo-localization",
-      ["expo-dev-client", {"launchMode": "most-recent"}],
-      ["expo-splash-screen", {"imageWidth": 200, "backgroundColor": "#FFFFFF", "image": "./src/assets/logo.png"}],
-      ["@stripe/stripe-react-native", {"enableGooglePay": true, "merchantIdentifier": "merchant.com.vidasana.app"}],
-      ["expo-location", {"locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location to search events near you."}]
+      [
+        "expo-dev-client",
+        {
+          "launchMode": "most-recent"
+        }
+      ],
+      [
+        "react-native-maps",
+        {
+          "iosGoogleMapsApiKey": "AIzaSyD2Q1ArCXQ_-R_FBH8sXrRWwF6NDqHT2Hk",
+          "androidGoogleMapsApiKey": "AIzaSyD2Q1ArCXQ_-R_FBH8sXrRWwF6NDqHT2Hk"
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "imageWidth": 200,
+          "backgroundColor": "#FFFFFF",
+          "image": "./src/assets/logo.png"
+        }
+      ],
+      [
+        "@stripe/stripe-react-native",
+        {
+          "enableGooglePay": true,
+          "merchantIdentifier": "merchant.com.vidasana.app"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location to search events near you."
+        }
+      ],
+      "@react-native-community/datetimepicker",
+      "expo-sharing",
+      "expo-web-browser"
     ],
-    "extra": {"router": {}, "eas": {"projectId": "21bf8ff0-8d54-4bf4-9c0e-e8b94dff74db"}}
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "21bf8ff0-8d54-4bf4-9c0e-e8b94dff74db"
+      }
+    }
   }
 }

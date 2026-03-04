@@ -13,7 +13,7 @@ import * as ImagePicker from 'expo-image-picker';
 interface EditProfileModalProps {
   visible: boolean;
   onClose: () => void;
-  onSuccess: (updatedData: {fullName: string; phone: string}) => void;
+  onSuccess: (updatedData: {fullName: string; phone: string; country_code: string}) => void;
   initialData: {fullName: string; phone: string; email: string; image?: string | null; country_code?: string};
 }
 
@@ -30,9 +30,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({visible, onCl
 
   useEffect(() => {
     if (visible) {
-      setEditedInfo({phone: initialData.phone, fullName: initialData.fullName});
-      // Try to use saved country_code first
-      setSelectedCountry(null);
+      setEditedInfo({phone: initialData.phone || '', fullName: initialData.fullName});
       setProfileImage(initialData.image || null);
     }
   }, [visible, initialData]);
@@ -60,8 +58,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({visible, onCl
 
     setIsSaving(true);
     try {
-      const fullPhoneNumber = selectedCountry ? `${selectedCountry?.callingCode} ${trimmedPhone}` : trimmedPhone;
-      const countryCode = selectedCountry?.cca2 || '';
+      const countryCode = selectedCountry?.cca2 || initialData.country_code || '';
 
       let uploadedImagePath: string | null | undefined = undefined;
 
@@ -99,7 +96,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({visible, onCl
         ? `${supabase.storage.from('profile').getPublicUrl(uploadedImagePath).data.publicUrl}?t=${Date.now()}`
         : undefined;
 
-      const profileUpdates: any = {name: trimmedName, phone: fullPhoneNumber || null, country_code: countryCode};
+      const profileUpdates: any = {name: trimmedName, phone: trimmedPhone || null, country_code: countryCode};
       if (uploadedImagePath !== undefined) {
         profileUpdates.image = uploadedImagePath; // store the relative path in DB
       }
@@ -114,7 +111,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({visible, onCl
       const {data: refreshed} = await supabase.auth.refreshSession();
       if (refreshed?.session) setSession(refreshed.session);
 
-      onSuccess({fullName: data?.name ?? trimmedName, phone: data?.phone ?? fullPhoneNumber});
+      onSuccess({fullName: data?.name ?? trimmedName, phone: data?.phone ?? trimmedPhone, country_code: countryCode});
       onClose();
     } catch (saveError) {
       console.error('Error updating profile:', saveError);

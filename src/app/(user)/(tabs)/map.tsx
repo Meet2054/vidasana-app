@@ -2,7 +2,7 @@ import React, {useEffect, useRef, useState} from 'react';
 import {View, TouchableOpacity, Image, Modal, Pressable, Animated} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useQuery} from '@tanstack/react-query';
-import {supabase} from '@/utils/supabase';
+import {supabase} from '@/utils';
 import {router} from 'expo-router';
 import MapView, {Marker, PROVIDER_GOOGLE, Region} from 'react-native-maps';
 import Supercluster from 'supercluster';
@@ -24,7 +24,7 @@ export default function MapScreen() {
   // State for fetching parameters (Debounced) — null until GPS resolves
   const [fetchParams, setFetchParams, debouncedParams] = useDebouncer<{zoom: number; radius: number; lat: number | null; lng: number | null}>(
     {zoom: 14, radius: 10, lat: null, lng: null},
-    1000
+    1500
   );
 
   // -- User Location Setup --
@@ -32,12 +32,7 @@ export default function MapScreen() {
 
   useEffect(() => {
     if (location) {
-      const region = {
-        latitude: location.latitude,
-        longitude: location.longitude,
-        latitudeDelta: 0.0922,
-        longitudeDelta: 0.0421,
-      };
+      const region = {latitudeDelta: 0.0922, longitudeDelta: 0.0421, latitude: location.latitude, longitude: location.longitude};
       setInitialRegion(region);
       setFetchParams({lat: location.latitude, lng: location.longitude, radius: 10, zoom: 14});
       mapRef.current?.animateToRegion(region, 1000);
@@ -47,33 +42,12 @@ export default function MapScreen() {
     }
   }, [location, isLocationLoading]);
 
-  const handleGoToMyLocation = () => {
-    if (location) {
-      const region = {
-        latitude: location.latitude,
-        longitude: location.longitude,
-        latitudeDelta: 0.0922,
-        longitudeDelta: 0.0421,
-      };
-      mapRef.current?.animateToRegion(region, 600);
-    }
-  };
-
   // Animate bottom sheet
   useEffect(() => {
     if (selectedItem) {
-      Animated.spring(slideAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-        tension: 65,
-        friction: 11,
-      }).start();
+      Animated.spring(slideAnim, {toValue: 1, tension: 65, friction: 11, useNativeDriver: true}).start();
     } else {
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }).start();
+      Animated.timing(slideAnim, {toValue: 0, duration: 200, useNativeDriver: true}).start();
     }
   }, [selectedItem]);
 
@@ -84,17 +58,12 @@ export default function MapScreen() {
     queryKey: ['map_items', debouncedParams.lat, debouncedParams.lng, debouncedParams.radius],
     queryFn: async () => {
       const radiusMeters = Math.round(debouncedParams.radius * 1000);
-      console.log('Fetching map items:', {
-        lat: debouncedParams.lat,
-        lng: debouncedParams.lng,
-        radiusKm: debouncedParams.radius,
-        radiusMeters,
-      });
+      console.log('Fetching map items:', {radiusMeters, lat: debouncedParams.lat, lng: debouncedParams.lng, radiusKm: debouncedParams.radius});
 
       const {data, error} = await supabase.rpc('search_map_items', {
+        radius_meters: radiusMeters,
         user_lat: debouncedParams.lat!,
         user_lng: debouncedParams.lng!,
-        radius_meters: radiusMeters,
       });
 
       if (error) {
@@ -129,9 +98,7 @@ export default function MapScreen() {
   const currentRegionRef = useRef<Region | null>(null);
 
   useEffect(() => {
-    if (initialRegion) {
-      currentRegionRef.current = initialRegion;
-    }
+    if (initialRegion) currentRegionRef.current = initialRegion;
   }, [initialRegion]);
 
   const onRegionChangeComplete = (region: Region) => {
@@ -215,24 +182,12 @@ export default function MapScreen() {
               onPress={() => {
                 // Find the full item data
                 const fullItem = items?.find((item) => item.id === feature.properties.itemId);
-                if (fullItem) {
-                  setSelectedItem(fullItem);
-                }
+                if (fullItem) setSelectedItem(fullItem);
               }}
             />
           );
         })}
       </MapView>
-
-      {/* My Location FAB */}
-      {location && (
-        <TouchableOpacity
-          onPress={handleGoToMyLocation}
-          className="bottom-safe-offset-8 absolute right-4 h-12 w-12 items-center justify-center rounded-full bg-white shadow-lg"
-          style={{elevation: 5}}>
-          <Ionicons name="locate" size={22} color="#00594f" />
-        </TouchableOpacity>
-      )}
 
       {/* Loading Indicator */}
       <Loader visible={isLoading} />
