@@ -20,13 +20,13 @@ export const supabase = createClient<Database>(process.env.EXPO_PUBLIC_SUPABASE_
   auth: {persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storage: ExpoSecureStoreAdapter as any},
 });
 
-type Buckets = 'provider_docs' | 'images';
+type Buckets = 'provider_docs' | 'images' | 'profile';
 
 export async function uploadFile(file: DocumentPickerAsset | ImagePickerAsset, bucket: Buckets, path: string) {
   try {
     const formData = new FormData();
     // @ts-ignore
-    formData.append('file', {uri: file.uri, name: file.name || file.fileName, type: file.mimeType} as any);
+    formData.append('file', {uri: file.uri, name: file.name || (file as any).fileName, type: file.mimeType} as any);
     return await supabase.storage.from(bucket).upload(path, formData, {upsert: true, contentType: file.mimeType});
   } catch (err) {
     return {data: null, error: err};

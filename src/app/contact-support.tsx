@@ -1,5 +1,5 @@
 import React from 'react';
-import {supabase} from '@/utils';
+import {useAppStore} from '@/store';
 import {View, Linking} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
 import {Display, Subtitle, Button} from '@/components';
@@ -7,8 +7,9 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import {useLocalSearchParams, useRouter} from 'expo-router';
 
 export default function ContactSupportScreen() {
-  const router = useRouter();
+  const {replace} = useRouter();
   const {reason} = useLocalSearchParams();
+  const signOut = useAppStore((s) => s.signOut);
 
   const isRejected = reason === 'reject';
   const isSuspended = reason === 'suspended';
@@ -34,7 +35,7 @@ export default function ContactSupportScreen() {
 
       <View className="w-full">
         <Button label="Contact Support" onPress={() => Linking.openURL('mailto:support@vidasana.com')} fullWidth className="mb-4" />
-        <Button label="Log Out" variant="outline" fullWidth onPress={() => supabase.auth.signOut().finally(() => router.replace('/auth'))} />
+        <Button label="Log Out" variant="outline" fullWidth onPress={() => signOut().finally(() => replace('/auth'))} />
       </View>
     </SafeAreaView>
   );

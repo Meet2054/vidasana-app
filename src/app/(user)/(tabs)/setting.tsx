@@ -19,16 +19,18 @@ export default function UserSettingsScreen() {
   const {t, i18n} = useTranslation();
   const insets = useSafeAreaInsets();
 
+  const signOut = useAppStore((state) => state.signOut);
   const session = useAppStore((state) => state.session);
   const currentUser = session?.user;
 
   const [isEditing, setIsEditing] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
-  const [userInfo, setUserInfo] = useState<{fullName: string; email: string; phone: string; role: string}>({
+  const [userInfo, setUserInfo] = useState<{fullName: string; email: string; phone: string; role: string; country_code: string}>({
     fullName: '',
     email: '',
     phone: '',
     role: '',
+    country_code: '',
   });
   const [isFetchingProfile, setIsFetchingProfile] = useState(true);
   const [isLanguagePickerVisible, setIsLanguagePickerVisible] = useState(false);
@@ -37,7 +39,7 @@ export default function UserSettingsScreen() {
 
   useEffect(() => {
     if (!currentUser) {
-      setUserInfo({fullName: '', email: '', phone: '', role: ''});
+      setUserInfo({fullName: '', email: '', phone: '', role: '', country_code: ''});
       setProfileImage(null);
       setIsFetchingProfile(false);
       return;
@@ -48,6 +50,7 @@ export default function UserSettingsScreen() {
       email: currentUser.email || prev.email,
       phone: prev.phone,
       role: String(currentUser.user_metadata?.role || prev.role || ''),
+      country_code: prev.country_code,
     }));
 
     fetchProfile();
@@ -58,7 +61,7 @@ export default function UserSettingsScreen() {
 
     try {
       setIsFetchingProfile(true);
-      const {data, error} = await supabase.from('profile').select('name, phone, role, image').eq('id', currentUser.id).single();
+      const {data, error} = await supabase.from('profile').select('name, phone, role, image, country_code').eq('id', currentUser.id).single();
 
       if (error) {
         console.error('Error fetching profile:', error.message);
@@ -69,8 +72,9 @@ export default function UserSettingsScreen() {
         setUserInfo({
           fullName: data.name ?? currentUser.user_metadata?.full_name ?? '',
           email: currentUser.email ?? '',
-          phone: data.phone ?? '',
+          phone: data.phone ?? '', // Prioritize DB phone
           role: String(data.role ?? currentUser.user_metadata?.role ?? ''),
+          country_code: data.country_code ?? '',
         });
 
         if (data.image) {
@@ -93,14 +97,6 @@ export default function UserSettingsScreen() {
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-    } catch (error) {
-      Alert.alert('Error', 'Failed to log out. Please try again.');
-    }
-  };
-
   const handlePasswordChange = () => router.push('/(settings)/change-password');
 
   const handleEditPress = () => {
@@ -108,8 +104,8 @@ export default function UserSettingsScreen() {
     setIsEditing(true);
   };
 
-  const handleUpdateSuccess = (updatedData: {fullName: string; phone: string}) => {
-    setUserInfo((prev) => ({...prev, phone: updatedData.phone, fullName: updatedData.fullName}));
+  const handleUpdateSuccess = (updatedData: {fullName: string; phone: string; country_code: string}) => {
+    setUserInfo((prev) => ({...prev, ...updatedData}));
     Toast.show({type: 'success', text1: 'Profile updated successfully'});
     fetchProfile();
   };
@@ -232,7 +228,7 @@ export default function UserSettingsScreen() {
         <AnimatedTouchableOpacity
           entering={FadeIn}
           exiting={FadeOut}
-          onPress={handleLogout}
+          onPress={signOut}
           className="mx-5 mb-8 mt-10 flex-row items-center justify-center rounded-xl bg-red-50 py-4">
           <Ionicons name="log-out-outline" size={24} color="#E03C31" />
           <Body className="ml-2 font-nunito-bold text-base text-[#E03C31]">{t('settings.logOut')}</Body>

@@ -19,3 +19,15 @@ export const getDays = (t: any): {label: string; value: WeekDay}[] => [
   {label: t('days.sat'), value: 'sat'},
   {label: t('days.sun'), value: 'sun'},
 ];
+
+export const ID_TYPES = [
+  {label: 'SSN Proof', value: 'ssn'},
+  {label: 'Passport', value: 'passport'},
+  {label: 'State ID', value: 'state_id'},
+  {label: "Driver's License", value: 'driver_license'},
+];
+
+export const PROVIDER_TYPES = [
+  {label: 'Company', value: 'company'},
+  {label: 'Individual', value: 'individual'},
+];

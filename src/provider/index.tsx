@@ -54,7 +54,7 @@ const AppProvider = ({children}: {children: ReactElement}) => {
         <PersistQueryClientProvider client={queryClient} persistOptions={{persister: createAsyncStoragePersister({storage})}}>
           <KeyboardProvider>{children}</KeyboardProvider>
         </PersistQueryClientProvider>
-        <StatusBar translucent style="auto" backgroundColor="transparent" />
+        <StatusBar style="auto" />
         <Toast position="top" topOffset={top} config={toastConfig} />
         <SOSModal />
         <SOSFAB />
